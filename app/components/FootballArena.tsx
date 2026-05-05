@@ -837,12 +837,24 @@ export default function FootballArena() {
       setBallFree(ball.free);
     };
 
-    tickRef.current = setInterval(tick, TICK_MS);
+    let lastTime = 0;
+    let rafId = 0;
+    const loop = (time: number) => {
+      if (time - lastTime >= TICK_MS) {
+        lastTime = time;
+        tick();
+      }
+      rafId = requestAnimationFrame(loop);
+    };
+    rafId = requestAnimationFrame(loop);
+    // Store raf id for cleanup (reuse tickRef as number)
+    tickRef.current = rafId as unknown as ReturnType<typeof setInterval>;
+
+    return () => cancelAnimationFrame(rafId);
   }, [bet, offenseCount, defenseCount, resetField]);
 
   useEffect(() => {
     return () => {
-      if (tickRef.current) clearInterval(tickRef.current);
       if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
     };
   }, []);

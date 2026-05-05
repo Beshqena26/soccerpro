@@ -1646,6 +1646,22 @@ body {
   .footer-bar { height: 36px; padding: 0 12px; }
   .ic svg { width: 14px; height: 14px; }
   .footer-logo { font-size: 11px; }
+
+  /* Mobile performance — disable expensive effects */
+  .player { transition: none; will-change: transform; }
+  .player::before { display: none; } /* no motion trail */
+  .player::after { display: none; } /* no ground shadow */
+  .ball-wrap { transition: none; will-change: transform; filter: none; }
+  .ball-wrap::after { display: none; }
+  .ball-wrap.flying { filter: none; }
+  .crowd-stands::before { display: none; }
+  .floodlight { display: none; }
+  .field-stripes::after { display: none; }
+  .match-overlay { backdrop-filter: none; background: rgba(0,0,0,0.8); }
+  .confetti-bit { display: none; }
+  .field-area.shake { animation: none; }
+  .possession-indicator { backdrop-filter: none; }
+  .net-ripple { display: none; }
 }
 
 /* Small phones */
