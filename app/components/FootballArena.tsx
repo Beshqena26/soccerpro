@@ -833,10 +833,11 @@ export default function FootballArena() {
   if (!gameStarted) {
     return (
       <TeamPicker onStart={(off, def) => {
+        audioRef.current?.unlock();
         setOffenseTeam(off);
         setDefenseTeam(def);
         setGameStarted(true);
-        audioRef.current?.startBgMusic();
+        setTimeout(() => audioRef.current?.startBgMusic(), 200);
       }} />
     );
   }
