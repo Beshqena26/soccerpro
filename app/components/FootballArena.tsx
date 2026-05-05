@@ -836,6 +836,7 @@ export default function FootballArena() {
         setOffenseTeam(off);
         setDefenseTeam(def);
         setGameStarted(true);
+        audioRef.current?.startBgMusic();
       }} />
     );
   }

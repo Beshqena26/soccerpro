@@ -1,6 +1,8 @@
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private enabled = true;
+  private bgMusic: HTMLAudioElement | null = null;
+  private bgStarted = false;
 
   private getCtx(): AudioContext {
     if (!this.ctx) this.ctx = new AudioContext();
@@ -9,7 +11,31 @@ export class AudioEngine {
 
   toggle(): boolean {
     this.enabled = !this.enabled;
+    if (this.bgMusic) {
+      if (this.enabled) {
+        this.bgMusic.play().catch(() => {});
+      } else {
+        this.bgMusic.pause();
+      }
+    }
     return this.enabled;
+  }
+
+  startBgMusic() {
+    if (this.bgStarted) return;
+    this.bgStarted = true;
+    try {
+      this.bgMusic = new Audio('/bg-music.mp3');
+      this.bgMusic.loop = true;
+      this.bgMusic.volume = 0.15;
+      if (this.enabled) {
+        this.bgMusic.play().catch(() => {});
+      }
+    } catch {}
+  }
+
+  setBgVolume(vol: number) {
+    if (this.bgMusic) this.bgMusic.volume = vol;
   }
 
   isEnabled(): boolean {
@@ -81,110 +107,71 @@ export class AudioEngine {
     } catch {}
   }
 
-  /** Referee whistle — two-tone like a real whistle */
+  /** Referee whistle — real sound file */
   sndWhistle() {
-    // Sharp high whistle
-    this.play(2800, 0.06, 'sine', 0.08);
-    setTimeout(() => this.play(3200, 0.08, 'sine', 0.10), 50);
-    setTimeout(() => this.play(3000, 0.35, 'sine', 0.09), 120);
-    // Slight warble
-    setTimeout(() => this.play(3100, 0.08, 'sine', 0.06), 300);
-    setTimeout(() => this.play(2900, 0.15, 'sine', 0.05), 350);
+    if (!this.enabled) return;
+    try {
+      const sfx = new Audio('/whistle.wav');
+      sfx.volume = 0.4;
+      sfx.play().catch(() => {});
+    } catch {}
   }
 
-  /** Ball kick — thump + air swoosh */
+  /** Ball kick — real sound file */
   sndKick() {
-    this.thud(120, 0.10, 0.14);
-    this.noise(0.08, 0.08, 2000, 0.5);
-    setTimeout(() => this.noise(0.05, 0.04, 4000, 0.8), 30);
+    if (!this.enabled) return;
+    try {
+      const sfx = new Audio('/sfx-kick.wav');
+      sfx.volume = 0.35;
+      sfx.play().catch(() => {});
+    } catch {}
   }
 
-  /** Tackle — body crunch + grunt thud */
+  /** Tackle — same kick SFX at lower volume */
   sndTackle() {
-    this.thud(80, 0.15, 0.12);
-    this.noise(0.12, 0.14, 600, 2);
-    setTimeout(() => this.thud(60, 0.1, 0.08), 40);
-    setTimeout(() => this.noise(0.08, 0.06, 1200, 1), 80);
+    if (!this.enabled) return;
+    try {
+      const sfx = new Audio('/sfx-kick.wav');
+      sfx.volume = 0.3;
+      sfx.play().catch(() => {});
+    } catch {}
   }
 
-  /** Pass — quick boot tap */
+  /** Pass — real sound file */
   sndPass() {
-    this.thud(200, 0.05, 0.08);
-    this.noise(0.04, 0.05, 3000, 0.8);
+    if (!this.enabled) return;
+    try {
+      const sfx = new Audio('/sfx-kick.wav');
+      sfx.volume = 0.25;
+      sfx.play().catch(() => {});
+    } catch {}
   }
 
-  /** Goal — crowd erupts + stadium horn */
+  /** Goal — whistle + crowd applause */
   sndGoal() {
-    // Crowd roar — builds up
-    this.noise(0.3, 0.04, 400, 0.5);
-    setTimeout(() => this.noise(0.5, 0.08, 500, 0.8), 100);
-    setTimeout(() => this.noise(1.2, 0.14, 600, 1), 200);
-    setTimeout(() => this.noise(1.5, 0.10, 700, 0.6), 400);
-
-    // Stadium horn — deep note
-    setTimeout(() => {
-      this.play(220, 0.6, 'sawtooth', 0.06);
-      this.play(330, 0.6, 'sawtooth', 0.04);
-      this.play(440, 0.5, 'sine', 0.05);
-    }, 250);
-
-    // Celebration melody
-    setTimeout(() => this.play(523, 0.12, 'sine', 0.08), 500);
-    setTimeout(() => this.play(659, 0.12, 'sine', 0.08), 600);
-    setTimeout(() => this.play(784, 0.15, 'sine', 0.10), 700);
-    setTimeout(() => this.play(1047, 0.3, 'sine', 0.10), 820);
+    this.sndWhistle();
+    if (!this.enabled) return;
+    try {
+      const crowd = new Audio('/crowd-win.mp3');
+      crowd.volume = 0.4;
+      crowd.play().catch(() => {});
+    } catch {}
   }
 
-  /** Big goal — massive crowd + extended horn + fireworks pops */
+  /** Big goal — whistle + crowd applause louder */
   sndBigGoal() {
-    // Huge crowd buildup
-    this.noise(0.4, 0.05, 350, 0.5);
-    setTimeout(() => this.noise(0.6, 0.10, 500, 0.8), 80);
-    setTimeout(() => this.noise(1.5, 0.16, 650, 1.0), 180);
-    setTimeout(() => this.noise(2.0, 0.12, 800, 0.6), 500);
-
-    // Double stadium horn
-    setTimeout(() => {
-      this.play(220, 0.8, 'sawtooth', 0.07);
-      this.play(330, 0.8, 'sawtooth', 0.05);
-      this.play(440, 0.7, 'sine', 0.06);
-    }, 200);
-    setTimeout(() => {
-      this.play(220, 0.6, 'sawtooth', 0.05);
-      this.play(440, 0.5, 'sine', 0.04);
-    }, 700);
-
-    // Celebration melody — extended
-    setTimeout(() => this.play(523, 0.1, 'sine', 0.09), 500);
-    setTimeout(() => this.play(659, 0.1, 'sine', 0.09), 580);
-    setTimeout(() => this.play(784, 0.1, 'sine', 0.10), 660);
-    setTimeout(() => this.play(1047, 0.12, 'sine', 0.12), 740);
-    setTimeout(() => this.play(1175, 0.12, 'sine', 0.12), 820);
-    setTimeout(() => this.play(1318, 0.15, 'sine', 0.10), 900);
-    setTimeout(() => this.play(1568, 0.4, 'sine', 0.08), 1000);
-
-    // Firework pops
-    setTimeout(() => this.noise(0.04, 0.10, 5000, 2), 600);
-    setTimeout(() => this.noise(0.04, 0.08, 6000, 2), 800);
-    setTimeout(() => this.noise(0.04, 0.09, 4500, 2), 1050);
+    this.sndWhistle();
+    if (!this.enabled) return;
+    try {
+      const crowd = new Audio('/crowd-win.mp3');
+      crowd.volume = 0.55;
+      crowd.play().catch(() => {});
+    } catch {}
   }
 
-  /** Lose — crowd groan + sad horn */
+  /** Lose — whistle */
   sndLose() {
-    // Crowd groan
-    this.noise(0.8, 0.08, 300, 0.5);
-
-    // Sad descending horn
-    this.play(220, 0.3, 'sawtooth', 0.05);
-    this.play(220, 0.3, 'sine', 0.06);
-    setTimeout(() => {
-      this.play(185, 0.35, 'sawtooth', 0.04);
-      this.play(185, 0.35, 'sine', 0.05);
-    }, 200);
-    setTimeout(() => {
-      this.play(147, 0.5, 'sawtooth', 0.03);
-      this.play(147, 0.5, 'sine', 0.04);
-    }, 420);
+    this.sndWhistle();
   }
 
   /** Bet placed — coin drop */
@@ -199,23 +186,13 @@ export class AudioEngine {
     this.play(600, 0.03, 'square', 0.03);
   }
 
-  /** GK save — glove catch thud */
+  /** GK save — kick SFX */
   sndSave() {
-    this.thud(100, 0.12, 0.12);
-    this.noise(0.06, 0.08, 1500, 1);
-    // Small crowd reaction
-    setTimeout(() => this.noise(0.4, 0.06, 500, 0.5), 50);
-  }
-
-  /** Near miss — crowd gasp */
-  sndGasp() {
-    this.noise(0.5, 0.06, 900, 0.8);
-    this.play(600, 0.06, 'sine', 0.04);
-    setTimeout(() => this.play(500, 0.08, 'sine', 0.03), 50);
-  }
-
-  /** Ambient crowd murmur — background loop feel */
-  sndCrowdPulse() {
-    this.noise(0.3, 0.02, 400, 0.3);
+    if (!this.enabled) return;
+    try {
+      const sfx = new Audio('/sfx-kick.wav');
+      sfx.volume = 0.3;
+      sfx.play().catch(() => {});
+    } catch {}
   }
 }
