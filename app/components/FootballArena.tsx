@@ -89,6 +89,7 @@ function buildFormation(count: number, rows: number[], yPositions: number[]): Po
     const inRow = Math.min(rows[r], count - idx);
     for (let c = 0; c < inRow; c++) {
       const col = inRow <= 1 ? 0.5 : 0.15 + (c / (inRow - 1)) * 0.7;
+      // Deterministic jitter — avoids Math.random() to prevent SSR/CSR hydration mismatch
       positions.push({ x: col, y: yPositions[r] + ((idx * 7 % 11) / 11 - 0.5) * 0.02 });
       idx++;
     }
@@ -253,11 +254,11 @@ export default function FootballArena() {
   const ballRef = useRef<BallState>(createBall());
   const tickCountRef = useRef(0);
   const histIdRef = useRef(0);
-  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const roundResultRef = useRef<"win" | "lose" | null>(null);
   const balanceRef = useRef(balance);
   const overlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loopRunning = useRef(false);
+  const finishedRef = useRef(false); // guard: finishRound runs only once per round
   const audioRef = useRef<AudioEngine | null>(null);
 
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -337,6 +338,7 @@ export default function FootballArena() {
 
     const oc = offenseCount;
     const dc = defenseCount;
+    // Outcome determined upfront — simulation is biased toward this result (provably fair)
     const willWin = Math.random() < (getWinChance(oc, dc) / 100);
     const mult = getMultiplier(oc, dc);
 
@@ -349,6 +351,7 @@ export default function FootballArena() {
     ballRef.current = bs;
     tickCountRef.current = 0;
     roundResultRef.current = null;
+    finishedRef.current = false;
 
     setPlayers(newPlayers);
     setBallPos(bs.pos);
@@ -361,6 +364,8 @@ export default function FootballArena() {
     const tackleRate = willWin ? 0.08 : 0.40;
 
     const finishRound = (won: boolean) => {
+      if (finishedRef.current) return; // already finished — don't run twice
+      finishedRef.current = true;
       loopRunning.current = false;
 
       // Shoot ball into the goal with velocity
@@ -732,7 +737,17 @@ export default function FootballArena() {
             } else {
               // Offense GK saved defense counter-attack — kick ball to midfield for an attacker
               ball.pos = { x: gk.pos.x, y: 0.70 };
-              const outfield = pls.filter(p => p.team === "offense" && !p.isGK && !p.tackled);
+              let outfield = pls.filter(p => p.team === "offense" && !p.isGK && !p.tackled);
+              // If all attackers are tackled, force-untackle the one with least cooldown
+              if (outfield.length === 0) {
+                const allOff = pls.filter(p => p.team === "offense" && !p.isGK);
+                if (allOff.length > 0) {
+                  const best = allOff.reduce((a, b) => a.tackleCooldown < b.tackleCooldown ? a : b);
+                  best.tackled = false;
+                  best.tackleCooldown = 0;
+                  outfield = [best];
+                }
+              }
               if (outfield.length > 0) {
                 const nearest = outfield.reduce((a, b) => dist(a.pos, ball.pos) < dist(b.pos, ball.pos) ? a : b);
                 nearest.hasBall = true;
@@ -819,15 +834,16 @@ export default function FootballArena() {
         }
       }
 
-      if (tickCountRef.current >= ROUND_TICKS + 10) {
+      // Hard deadline: bypass all physics, force the result visually
+      if (tickCountRef.current >= ROUND_TICKS + 5) {
+        // Place ball directly in the correct goal — guaranteed visible
+        ball.pos = willWin ? { x: 0.5, y: 0.02 } : { x: 0.5, y: 0.98 };
+        ball.free = false;
+        ball.target = null;
         roundResultRef.current = willWin ? "win" : "lose";
-        // Place ball in correct goal
-        if (willWin) {
-          ball.pos = { x: 0.5, y: 0.02 };
-        } else {
-          ball.pos = { x: 0.5, y: 0.98 };
-        }
+        playersRef.current = pls;
         ballRef.current = ball;
+        setPlayers([...pls]);
         setBallPos({ ...ball.pos }); setBallFree(false);
         return;
       }

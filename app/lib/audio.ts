@@ -127,13 +127,4 @@ export class AudioEngine {
     this.playFromPool(this.kickPool, 0.3);
   }
 
-  /** Bet placed */
-  sndBet() {
-    this.playFromPool(this.kickPool, 0.15);
-  }
-
-  /** Button click */
-  sndClick() {
-    this.playFromPool(this.kickPool, 0.1);
-  }
 }

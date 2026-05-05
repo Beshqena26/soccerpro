@@ -1664,8 +1664,8 @@ body {
   .net-ripple { display: none; }
 }
 
-/* Small phones */
-@media (max-width: 380px) {
+/* Small phones (iPhone SE = 375px) */
+@media (max-width: 375px) {
   .controls { padding: 6px 8px; gap: 5px; }
   .counter-control { height: 32px; }
   .counter-btn { width: 28px; }
