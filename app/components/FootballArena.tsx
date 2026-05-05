@@ -2,6 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { AudioEngine } from "../lib/audio";
+import { type WorldCupTeam } from "../lib/teams";
+import TeamPicker from "./TeamPicker";
 import GameInfoModal from "./GameInfoModal";
 import ProvablyFairModal from "./ProvablyFairModal";
 
@@ -218,6 +220,10 @@ function steer(current: Pos, vel: Pos, target: Pos, maxSpeed: number, accel: num
 }
 
 export default function FootballArena() {
+  const [offenseTeam, setOffenseTeam] = useState<WorldCupTeam | null>(null);
+  const [defenseTeam, setDefenseTeam] = useState<WorldCupTeam | null>(null);
+  const [gameStarted, setGameStarted] = useState(false);
+
   const [balance, setBalance] = useState(1000);
   const [bet, setBet] = useState("10.00");
   const [wins, setWins] = useState(0);
@@ -686,6 +692,7 @@ export default function FootballArena() {
             // GK catches the ball — save!
             ball.free = false;
             ball.target = null;
+            audioRef.current?.sndSave();
 
             // Clear ALL ball possession first
             for (const pp of pls) {
@@ -822,6 +829,17 @@ export default function FootballArena() {
     };
   }, []);
 
+  // Show team picker if no teams selected
+  if (!gameStarted) {
+    return (
+      <TeamPicker onStart={(off, def) => {
+        setOffenseTeam(off);
+        setDefenseTeam(def);
+        setGameStarted(true);
+      }} />
+    );
+  }
+
   return (
     <>
       <div className="app">
@@ -829,8 +847,9 @@ export default function FootballArena() {
         <div className="header">
           <div className="header-left">
             <div className="game-name">
-              <span className="ico">{"\u26BD"}</span>
-              <span>SoccerPro</span>
+              <span className="ico">{offenseTeam?.flag}</span>
+              <span>vs</span>
+              <span className="ico">{defenseTeam?.flag}</span>
             </div>
           </div>
           <div className="header-balance">
@@ -888,18 +907,30 @@ export default function FootballArena() {
               <div className="goal-area bottom" />
             </div>
 
-            {mounted && players.map(p => (
-              <div
-                key={p.id}
-                className={`player ${p.team}${p.isGK ? " gk" : ""}${p.hasBall || p.hasDefBall ? " has-ball" : ""}${p.tackled ? " tackled" : ""}`}
-                style={{
-                  left: `calc(${p.pos.x * 100}% - ${PLAYER_R}px)`,
-                  top: `calc(${p.pos.y * 100}% - ${PLAYER_R}px)`,
-                }}
-              >
-                {p.isGK ? "GK" : p.id + 1}
-              </div>
-            ))}
+            {mounted && players.map(p => {
+              const team = p.team === "offense" ? offenseTeam : defenseTeam;
+              const bg = p.isGK
+                ? (p.team === "offense" ? team?.secondaryColor : team?.secondaryColor)
+                : team?.primaryColor;
+              const txt = p.isGK
+                ? (p.team === "offense" ? team?.primaryColor : team?.primaryColor)
+                : team?.secondaryColor;
+              return (
+                <div
+                  key={p.id}
+                  className={`player ${p.team}${p.isGK ? " gk" : ""}${p.hasBall || p.hasDefBall ? " has-ball" : ""}${p.tackled ? " tackled" : ""}`}
+                  style={{
+                    left: `calc(${p.pos.x * 100}% - ${PLAYER_R}px)`,
+                    top: `calc(${p.pos.y * 100}% - ${PLAYER_R}px)`,
+                    background: `linear-gradient(135deg, ${bg}, ${bg}dd)`,
+                    color: txt,
+                    borderColor: `${txt}66`,
+                  }}
+                >
+                  {p.isGK ? "GK" : p.id + 1}
+                </div>
+              );
+            })}
 
             {mounted && <div
               className={`ball-wrap${playing ? " rolling" : ""}${ballFree ? " flying" : ""}`}
