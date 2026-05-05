@@ -257,6 +257,7 @@ export default function FootballArena() {
   const roundResultRef = useRef<"win" | "lose" | null>(null);
   const balanceRef = useRef(balance);
   const overlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loopRunning = useRef(false);
   const audioRef = useRef<AudioEngine | null>(null);
 
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -360,7 +361,7 @@ export default function FootballArena() {
     const tackleRate = willWin ? 0.08 : 0.40;
 
     const finishRound = (won: boolean) => {
-      if (tickRef.current) clearInterval(tickRef.current);
+      loopRunning.current = false;
 
       // Shoot ball into the goal with velocity
       const b = ballRef.current;
@@ -442,6 +443,7 @@ export default function FootballArena() {
     };
 
     const tick = () => {
+      if (!loopRunning.current) return;
       if (roundResultRef.current !== null) {
         finishRound(roundResultRef.current === "win");
         return;
@@ -837,9 +839,11 @@ export default function FootballArena() {
       setBallFree(ball.free);
     };
 
+    loopRunning.current = true;
     let lastTime = 0;
     let rafId = 0;
     const loop = (time: number) => {
+      if (!loopRunning.current) return;
       if (time - lastTime >= TICK_MS) {
         lastTime = time;
         tick();
@@ -847,10 +851,11 @@ export default function FootballArena() {
       rafId = requestAnimationFrame(loop);
     };
     rafId = requestAnimationFrame(loop);
-    // Store raf id for cleanup (reuse tickRef as number)
-    tickRef.current = rafId as unknown as ReturnType<typeof setInterval>;
 
-    return () => cancelAnimationFrame(rafId);
+    return () => {
+      loopRunning.current = false;
+      cancelAnimationFrame(rafId);
+    };
   }, [bet, offenseCount, defenseCount, resetField]);
 
   useEffect(() => {
