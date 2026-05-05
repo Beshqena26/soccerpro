@@ -245,6 +245,9 @@ export default function FootballArena() {
   const [showPayout, setShowPayout] = useState<string | null>(null);
   const [resultBet, setResultBet] = useState(0);
   const [resultMult, setResultMult] = useState(0);
+  const [celebrating, setCelebrating] = useState(false);
+  const [cameraShake, setCameraShake] = useState(false);
+  const [confetti, setConfetti] = useState<{ id: number; x: number; color: string; delay: number }[]>([]);
 
   const playersRef = useRef(players);
   const ballRef = useRef<BallState>(createBall());
@@ -373,10 +376,25 @@ export default function FootballArena() {
       setBallPos({ ...b.pos });
       setBallFree(false);
 
-      // Flash + text immediately (ball is in the net now)
+      // Flash + text + effects
       setGoalFlash(true);
+      setCameraShake(true);
+      setTimeout(() => setCameraShake(false), 500);
+
       if (won) {
         setGoalText("GOAL!");
+        setCelebrating(true);
+        setTimeout(() => setCelebrating(false), 1500);
+        // Confetti burst
+        const bits = Array.from({ length: 20 }, (_, i) => ({
+          id: Date.now() + i,
+          x: 20 + Math.random() * 60,
+          color: [offenseTeam?.primaryColor || '#0ECC68', offenseTeam?.secondaryColor || '#fff', '#FFD700'][i % 3],
+          delay: Math.random() * 0.3,
+        }));
+        setConfetti(bits);
+        setTimeout(() => setConfetti([]), 2000);
+
         if (mult >= 4) {
           audioRef.current?.sndBigGoal();
         } else {
@@ -882,9 +900,22 @@ export default function FootballArena() {
         </div>
 
         {/* Field */}
-        <div className="field-area">
+        <div className={`field-area${cameraShake ? " shake" : ""}`}>
           <div className={`football-field${goalFlash ? " goal-active" : ""}`}>
-            {/* Goal frames sit outside the clipping area */}
+            {/* Crowd stands behind field */}
+            <div className="crowd-stands" />
+
+            {/* Floodlights */}
+            <div className="floodlight fl-tl" />
+            <div className="floodlight fl-tr" />
+            <div className="floodlight fl-bl" />
+            <div className="floodlight fl-br" />
+
+            {/* Team banners on sides */}
+            <div className="team-banner left" style={{ background: `linear-gradient(180deg, ${offenseTeam?.primaryColor}, ${offenseTeam?.secondaryColor})` }} />
+            <div className="team-banner right" style={{ background: `linear-gradient(180deg, ${defenseTeam?.primaryColor}, ${defenseTeam?.secondaryColor})` }} />
+
+            {/* Goal frames */}
             <div className={`goal-frame top${goalFlash && ballPos.y < 0.1 ? " scored" : ""}`}>
               <div className="goal-net-mesh" />
               <div className="goal-post left" />
@@ -897,7 +928,19 @@ export default function FootballArena() {
               <div className="goal-post right" />
               <div className="goal-crossbar" />
             </div>
-            {/* Field content clips inside the green area */}
+
+            {/* Net ripple on goal */}
+            {goalFlash && ballPos.y < 0.1 && <div className="net-ripple top" />}
+            {goalFlash && ballPos.y > 0.9 && <div className="net-ripple bottom" />}
+
+            {/* Match timer bar */}
+            {playing && (
+              <div className="match-timer-bar">
+                <div className="match-timer-fill" style={{ width: `${Math.min(100, (tickCountRef.current / ROUND_TICKS) * 100)}%` }} />
+              </div>
+            )}
+
+            {/* Field content */}
             <div className="field-clip">
               <div className="field-stripes" />
               <div className="center-line" />
@@ -907,7 +950,38 @@ export default function FootballArena() {
               <div className="penalty-area bottom" />
               <div className="goal-area top" />
               <div className="goal-area bottom" />
+              <div className="corner-arc tl" />
+              <div className="corner-arc tr" />
+              <div className="corner-arc bl" />
+              <div className="corner-arc br" />
+              <div className="penalty-dot top" />
+              <div className="penalty-dot bottom" />
             </div>
+
+
+            {/* Confetti on win */}
+            {confetti.map(c => (
+              <div
+                key={c.id}
+                className="confetti-bit"
+                style={{
+                  left: `${c.x}%`,
+                  top: '30%',
+                  backgroundColor: c.color,
+                  animationDelay: `${c.delay}s`,
+                }}
+              />
+            ))}
+
+            {/* Possession indicator */}
+            {playing && (
+              <div className="possession-indicator">
+                <div className="poss-dot" style={{ backgroundColor: ballFree ? '#666' : (players.some(p => p.hasBall) ? offenseTeam?.primaryColor : defenseTeam?.primaryColor) }} />
+                <span className="poss-label">
+                  {ballFree ? "LOOSE" : (players.some(p => p.hasBall) ? offenseTeam?.code : defenseTeam?.code)}
+                </span>
+              </div>
+            )}
 
             {mounted && players.map(p => {
               const team = p.team === "offense" ? offenseTeam : defenseTeam;
@@ -920,7 +994,7 @@ export default function FootballArena() {
               return (
                 <div
                   key={p.id}
-                  className={`player ${p.team}${p.isGK ? " gk" : ""}${p.hasBall || p.hasDefBall ? " has-ball" : ""}${p.tackled ? " tackled" : ""}`}
+                  className={`player ${p.team}${p.isGK ? " gk" : ""}${p.hasBall || p.hasDefBall ? " has-ball" : ""}${p.tackled ? " tackled" : ""}${playing && !p.tackled ? " running" : ""}${celebrating && p.team === "offense" && !p.isGK ? " celebrating" : ""}`}
                   style={{
                     left: `calc(${p.pos.x * 100}% - ${PLAYER_R}px)`,
                     top: `calc(${p.pos.y * 100}% - ${PLAYER_R}px)`,
@@ -941,21 +1015,44 @@ export default function FootballArena() {
                 top: `calc(${ballPos.y * 100}% - 8px)`,
               }}
             >
-              <svg className="ball-inner" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="16" cy="16" r="15" fill="#f5f5f0" stroke="#222" strokeWidth="1"/>
-                <circle cx="16" cy="16" r="15" fill="url(#ballShade)"/>
-                <polygon points="16,6 19.5,9.5 18,14 14,14 12.5,9.5" fill="#333" stroke="#222" strokeWidth="0.5"/>
-                <polygon points="24,12 26,16 23.5,19.5 20,18 20,14" fill="#333" stroke="#222" strokeWidth="0.5"/>
-                <polygon points="22,24 18,26.5 14,26.5 10,24 12,20" fill="#333" stroke="#222" strokeWidth="0.5"/>
-                <polygon points="6,16 8,12 12,14 12,18 8.5,19.5" fill="#333" stroke="#222" strokeWidth="0.5"/>
-                <polygon points="20,18 23.5,19.5 22,24 18,22" fill="#444" stroke="#222" strokeWidth="0.3"/>
-                <polygon points="12,18 8.5,19.5 10,24 14,22" fill="#444" stroke="#222" strokeWidth="0.3"/>
+              <svg className="ball-inner" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
                 <defs>
-                  <radialGradient id="ballShade" cx="0.35" cy="0.3" r="0.65">
-                    <stop offset="0%" stopColor="rgba(255,255,255,0.3)"/>
-                    <stop offset="100%" stopColor="rgba(0,0,0,0.15)"/>
+                  <radialGradient id="ballBase" cx="0.38" cy="0.32" r="0.65">
+                    <stop offset="0%" stopColor="#fafafa"/>
+                    <stop offset="70%" stopColor="#e8e8e4"/>
+                    <stop offset="100%" stopColor="#c8c8c0"/>
+                  </radialGradient>
+                  <radialGradient id="ballHighlight" cx="0.3" cy="0.25" r="0.35">
+                    <stop offset="0%" stopColor="rgba(255,255,255,0.7)"/>
+                    <stop offset="100%" stopColor="rgba(255,255,255,0)"/>
+                  </radialGradient>
+                  <radialGradient id="ballShadow" cx="0.6" cy="0.7" r="0.5">
+                    <stop offset="0%" stopColor="rgba(0,0,0,0)"/>
+                    <stop offset="100%" stopColor="rgba(0,0,0,0.12)"/>
                   </radialGradient>
                 </defs>
+                {/* Base sphere */}
+                <circle cx="32" cy="32" r="30" fill="url(#ballBase)" stroke="#aaa" strokeWidth="0.8"/>
+                {/* Seam lines — white hexagon outlines */}
+                <path d="M32,8 L38,14 L36,22 L28,22 L26,14 Z" fill="none" stroke="#bbb" strokeWidth="0.7"/>
+                <path d="M46,18 L52,26 L48,34 L40,32 L38,24 Z" fill="none" stroke="#bbb" strokeWidth="0.7"/>
+                <path d="M18,18 L26,24 L24,32 L16,34 L12,26 Z" fill="none" stroke="#bbb" strokeWidth="0.7"/>
+                <path d="M44,40 L50,36 L54,42 L50,50 L42,48 Z" fill="none" stroke="#bbb" strokeWidth="0.7"/>
+                <path d="M20,40 L22,48 L14,50 L10,42 L14,36 Z" fill="none" stroke="#bbb" strokeWidth="0.7"/>
+                <path d="M28,44 L36,44 L40,52 L32,58 L24,52 Z" fill="none" stroke="#bbb" strokeWidth="0.7"/>
+                {/* Black pentagons */}
+                <path d="M32,10 L37,15 L35,21 L29,21 L27,15 Z" fill="#222"/>
+                <path d="M48,20 L52,27 L49,33 L41,31 L39,25 Z" fill="#222"/>
+                <path d="M16,20 L25,25 L23,31 L15,33 L12,27 Z" fill="#222"/>
+                <path d="M45,41 L50,38 L53,43 L49,49 L43,47 Z" fill="#222"/>
+                <path d="M19,41 L21,47 L15,49 L11,43 L14,38 Z" fill="#222"/>
+                <path d="M29,45 L35,45 L39,51 L32,56 L25,51 Z" fill="#222"/>
+                {/* 3D highlight */}
+                <circle cx="32" cy="32" r="30" fill="url(#ballHighlight)"/>
+                {/* Subtle bottom shadow */}
+                <circle cx="32" cy="32" r="30" fill="url(#ballShadow)"/>
+                {/* Edge rim */}
+                <circle cx="32" cy="32" r="30" fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="1.5"/>
               </svg>
             </div>}
 
