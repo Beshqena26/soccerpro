@@ -1621,9 +1621,13 @@ body {
 .bm-input-wrap input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .bm-chips {
   display: flex;
-  gap: 2px;
-  padding: 0 4px;
+  gap: 3px;
+  padding: 0 5px;
   flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.2);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  margin-left: 4px;
+  padding-left: 8px;
 }
 .bm-chips button {
   width: 36px;
