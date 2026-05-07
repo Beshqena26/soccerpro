@@ -2666,7 +2666,7 @@ body {
   .field-stat { backdrop-filter: none; background: rgba(15, 33, 46, 0.88); }
   .field-bet-row { backdrop-filter: none; background: rgba(15, 33, 46, 0.88); }
 
-  .bet-modal { padding: 14px 12px; width: 270px; backdrop-filter: none; background: rgba(15, 33, 46, 0.97); }
+  .bet-modal { padding: 14px 12px; width: 270px; }
   .bm-stats { padding: 6px 0; }
   .bm-stat-val { font-size: 15px; }
   .bm-stat-label { font-size: 7px; }
@@ -2674,7 +2674,6 @@ body {
   .bm-slider-num { font-size: 15px; }
   .bm-slider-label { font-size: 8px; }
   .bm-slider::-webkit-slider-thumb { width: 18px; height: 18px; }
-  .bet-modal { -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
   .bm-input-wrap { height: 36px; }
   .bm-input-wrap input { font-size: 13px; }
   .bm-chips button { width: 32px; height: 24px; font-size: 9px; }
@@ -2686,7 +2685,6 @@ body {
   .hdr-score { font-size: 16px; }
   .hdr-phase { font-size: 7px; }
   .hdr-timer { width: 32px; }
-  .halftime-overlay { backdrop-filter: none; }
   .ht-text { font-size: 18px; }
   .ht-score { font-size: 28px; }
   .mo-final-score { font-size: 22px; }
@@ -2728,7 +2726,7 @@ body {
   .crowd-stands::before { display: none; }
   .floodlight { display: none; }
   .field-stripes::after { display: none; }
-  .match-overlay { backdrop-filter: none; background: rgba(0,0,0,0.8); }
+  .match-overlay { }
   .confetti-bit { display: none; }
   .field-area.shake { animation: none; }
   .possession-indicator { backdrop-filter: none; }
