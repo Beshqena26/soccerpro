@@ -1292,14 +1292,13 @@ body {
   100% { opacity: 1; }
 }
 .bet-modal {
-  background: linear-gradient(170deg, rgba(20, 42, 56, 0.65) 0%, rgba(12, 28, 40, 0.70) 100%);
+  background: rgba(15, 33, 46, 0.35);
   backdrop-filter: blur(24px) saturate(1.2);
   -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 0 0 1px rgba(0, 0, 0, 0.2);
+    0 20px 60px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   padding: 18px 16px 16px;
   display: flex;
