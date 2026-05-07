@@ -8,8 +8,6 @@ interface TeamPickerProps {
 }
 
 export default function TeamPicker({ onStart }: TeamPickerProps) {
-  const [step, setStep] = useState<"offense" | "defense">("offense");
-  const [offenseTeam, setOffenseTeam] = useState<WorldCupTeam | null>(null);
   const [search, setSearch] = useState("");
 
   const filtered = worldCup2026Teams.filter(t =>
@@ -18,13 +16,10 @@ export default function TeamPicker({ onStart }: TeamPickerProps) {
   );
 
   const handlePick = (team: WorldCupTeam) => {
-    if (step === "offense") {
-      setOffenseTeam(team);
-      setStep("defense");
-      setSearch("");
-    } else {
-      if (offenseTeam) onStart(offenseTeam, team);
-    }
+    // Pick random opponent (different from chosen team)
+    const others = worldCup2026Teams.filter(t => t.code !== team.code);
+    const opponent = others[Math.floor(Math.random() * others.length)];
+    onStart(team, opponent);
   };
 
   return (
@@ -38,17 +33,7 @@ export default function TeamPicker({ onStart }: TeamPickerProps) {
           <span className="picker-sub">World Cup 2026</span>
         </div>
 
-        {offenseTeam && step === "defense" && (
-          <div className="picked-badge" onClick={() => { setStep("offense"); setOffenseTeam(null); setSearch(""); }}>
-            <span className="picked-flag">{offenseTeam.flag}</span>
-            <span className="picked-name">{offenseTeam.name}</span>
-            <span className="picked-vs">VS ?</span>
-          </div>
-        )}
-
-        <div className="picker-prompt">
-          {step === "offense" ? "Select your team" : "Select opponent"}
-        </div>
+        <div className="picker-prompt">Choose your team</div>
 
         <div className="picker-search">
           <input
@@ -60,21 +45,17 @@ export default function TeamPicker({ onStart }: TeamPickerProps) {
         </div>
 
         <div className="picker-grid">
-          {filtered.map(team => {
-            const isSelected = offenseTeam?.code === team.code && step === "defense";
-            return (
-              <button
-                key={team.code}
-                className={`team-card${isSelected ? " disabled" : ""}`}
-                onClick={() => !isSelected && handlePick(team)}
-                disabled={isSelected}
-              >
-                <span className="team-flag">{team.flag}</span>
-                <span className="team-name">{team.name}</span>
-                <span className="team-code">{team.code}</span>
-              </button>
-            );
-          })}
+          {filtered.map(team => (
+            <button
+              key={team.code}
+              className="team-card"
+              onClick={() => handlePick(team)}
+            >
+              <span className="team-flag">{team.flag}</span>
+              <span className="team-name">{team.name}</span>
+              <span className="team-code">{team.code}</span>
+            </button>
+          ))}
         </div>
       </div>
     </div>

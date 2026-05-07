@@ -2,16 +2,19 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { AudioEngine } from "../lib/audio";
-import { type WorldCupTeam } from "../lib/teams";
+import { worldCup2026Teams, type WorldCupTeam } from "../lib/teams";
 import TeamPicker from "./TeamPicker";
 import GameInfoModal from "./GameInfoModal";
 import ProvablyFairModal from "./ProvablyFairModal";
 
-const ROUND_TICKS = 220;
+const HALF_TICKS = 240;
+const EXTRA_TICKS = 120;
+const HALFTIME_MS = 1800; // halftime pause duration
 const PLAYER_R = 13;
 const GOAL_X_MIN = 0.30;
 const GOAL_X_MAX = 0.70;
-const TICK_MS = 35;
+const TICK_MS_STANDARD = 35;
+const TICK_MS_FAST = 17;
 const MIN_BET = 1;
 const MAX_BET = 500;
 const MIN_PLAYERS = 1;
@@ -49,22 +52,13 @@ function fmt(n: number) { return n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, "
 
 const HOUSE_EDGE = 0.035; // 3.5% house edge = 96.5% RTP
 
-// Win chance based on defense/offense ratio
+// Win chance based on individual offense & defense counts
+// Every (off, def) pair produces a unique value — no duplicates
+// Coefficients 5.65/5.85 are coprime when scaled (113/117), guaranteeing
+// uniqueness for all integer pairs in [1,9] range
 function getWinChance(offCount: number, defCount: number): number {
-  const ratio = defCount / offCount;
-  if (ratio <= 0.3) return 92;
-  if (ratio <= 0.5) return 82;
-  if (ratio <= 0.8) return 68;
-  if (ratio <= 1.0) return 55;
-  if (ratio <= 1.5) return 40;
-  if (ratio <= 2.0) return 28;
-  if (ratio <= 3.0) return 18;
-  if (ratio <= 4.0) return 12;
-  if (ratio <= 5.0) return 8;
-  if (ratio <= 6.0) return 5;
-  if (ratio <= 7.0) return 3.5;
-  if (ratio <= 8.0) return 2.5;
-  return 2;
+  const raw = 50 + 5.65 * offCount - 5.85 * defCount;
+  return parseFloat(Math.max(2, Math.min(96, raw)).toFixed(1));
 }
 
 // Multiplier calculated from win chance to maintain 96.5% RTP
@@ -121,6 +115,7 @@ function getDefenseFormation(count: number): Pos[] {
   return buildFormation(count, [3, 3, 3], [0.18, 0.28, 0.40]);
 }
 
+// Stable IDs: offense 0-8, defense 100-108, GKs 200/201
 function createPlayers(offenseCount: number, defenseCount: number): Player[] {
   const players: Player[] = [];
 
@@ -145,7 +140,7 @@ function createPlayers(offenseCount: number, defenseCount: number): Player[] {
   for (let i = 0; i < defenseCount; i++) {
     const home = defPositions[i];
     players.push({
-      id: offenseCount + i,
+      id: 100 + i,
       team: "defense",
       pos: { ...home },
       vel: { x: 0, y: 0 },
@@ -160,7 +155,7 @@ function createPlayers(offenseCount: number, defenseCount: number): Player[] {
 
   // Goalkeeper for defense (guards top goal)
   players.push({
-    id: offenseCount + defenseCount,
+    id: 200,
     team: "defense",
     pos: { x: 0.5, y: 0.06 },
     vel: { x: 0, y: 0 },
@@ -174,7 +169,7 @@ function createPlayers(offenseCount: number, defenseCount: number): Player[] {
 
   // Goalkeeper for offense (guards bottom goal)
   players.push({
-    id: offenseCount + defenseCount + 1,
+    id: 201,
     team: "offense",
     pos: { x: 0.5, y: 0.94 },
     vel: { x: 0, y: 0 },
@@ -223,7 +218,7 @@ function steer(current: Pos, vel: Pos, target: Pos, maxSpeed: number, accel: num
 export default function FootballArena() {
   const [offenseTeam, setOffenseTeam] = useState<WorldCupTeam | null>(null);
   const [defenseTeam, setDefenseTeam] = useState<WorldCupTeam | null>(null);
-  const [gameStarted, setGameStarted] = useState(false);
+  const [teamSearch, setTeamSearch] = useState("");
 
   const [balance, setBalance] = useState(1000);
   const [bet, setBet] = useState("10.00");
@@ -249,6 +244,12 @@ export default function FootballArena() {
   const [celebrating, setCelebrating] = useState(false);
   const [cameraShake, setCameraShake] = useState(false);
   const [confetti, setConfetti] = useState<{ id: number; x: number; color: string; delay: number }[]>([]);
+  const [newPlayerIds, setNewPlayerIds] = useState<Set<number>>(new Set());
+  const [gameSpeed, setGameSpeed] = useState<"standard" | "fast">("standard");
+  const [matchPhase, setMatchPhase] = useState<"1st" | "halftime" | "2nd" | "fulltime" | "extra-intro" | "extra" | null>(null);
+  const [offScore, setOffScore] = useState(0);
+  const [defScore, setDefScore] = useState(0);
+  const [halfTick, setHalfTick] = useState(0);
 
   const playersRef = useRef(players);
   const ballRef = useRef<BallState>(createBall());
@@ -258,12 +259,18 @@ export default function FootballArena() {
   const balanceRef = useRef(balance);
   const overlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loopRunning = useRef(false);
-  const finishedRef = useRef(false); // guard: finishRound runs only once per round
+  const finishedRef = useRef(false);
   const audioRef = useRef<AudioEngine | null>(null);
+  const phaseRef = useRef<"1st" | "2nd" | "extra">("1st");
+  const halfTickRef = useRef(0);
+  const offScoreRef = useRef(0);
+  const defScoreRef = useRef(0);
+  const goalCooldownRef = useRef(0); // prevent goals right after reset
 
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [gameInfoOpen, setGameInfoOpen] = useState(false);
   const [pfModalOpen, setPfModalOpen] = useState(false);
+  const [showTeamPicker, setShowTeamPicker] = useState(false);
 
   useEffect(() => {
     audioRef.current = new AudioEngine();
@@ -281,7 +288,17 @@ export default function FootballArena() {
   const winChance = getWinChance(offenseCount, defenseCount);
 
   const resetField = useCallback((oc: number, dc: number) => {
+    const prev = playersRef.current;
     const np = createPlayers(oc, dc);
+
+    // Track new player IDs for fade-in animation
+    const prevIds = new Set(prev.map(p => p.id));
+    const entering = new Set(np.filter(p => !prevIds.has(p.id)).map(p => p.id));
+    setNewPlayerIds(entering);
+    if (entering.size > 0) {
+      setTimeout(() => setNewPlayerIds(new Set()), 700);
+    }
+
     playersRef.current = np;
     setPlayers(np);
     const bs = createBall(oc);
@@ -309,10 +326,16 @@ export default function FootballArena() {
     setGoalFlash(false);
     setGoalText(null);
     setShowPayout(null);
+    setMatchPhase(null);
+    setOffScore(0);
+    setDefScore(0);
+    offScoreRef.current = 0;
+    defScoreRef.current = 0;
     resetField(offenseCount, defenseCount);
   }, [offenseCount, defenseCount, resetField]);
 
   const playRound = useCallback(() => {
+    if (loopRunning.current) return; // prevent double-click
     const betAmt = parseFloat(bet);
     if (!isFinite(betAmt) || betAmt < MIN_BET || betAmt > MAX_BET) {
       setAlert(`Bet must be $${MIN_BET}-$${MAX_BET}`);
@@ -325,7 +348,6 @@ export default function FootballArena() {
       return;
     }
 
-    // Clear previous overlay
     if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
     setRoundResult(null);
     setGoalFlash(false);
@@ -338,7 +360,6 @@ export default function FootballArena() {
 
     const oc = offenseCount;
     const dc = defenseCount;
-    // Outcome determined upfront — simulation is biased toward this result (provably fair)
     const willWin = Math.random() < (getWinChance(oc, dc) / 100);
     const mult = getMultiplier(oc, dc);
 
@@ -353,6 +374,17 @@ export default function FootballArena() {
     roundResultRef.current = null;
     finishedRef.current = false;
 
+    // Reset match state
+    phaseRef.current = "1st";
+    halfTickRef.current = 0;
+    offScoreRef.current = 0;
+    defScoreRef.current = 0;
+    goalCooldownRef.current = 0;
+    setMatchPhase("1st");
+    setOffScore(0);
+    setDefScore(0);
+    setHalfTick(0);
+
     setPlayers(newPlayers);
     setBallPos(bs.pos);
     setBallFree(false);
@@ -364,34 +396,16 @@ export default function FootballArena() {
     const tackleRate = willWin ? 0.08 : 0.40;
 
     const finishRound = (won: boolean) => {
-      if (finishedRef.current) return; // already finished — don't run twice
+      if (finishedRef.current) return;
       finishedRef.current = true;
       loopRunning.current = false;
 
-      // Shoot ball into the goal with velocity
-      const b = ballRef.current;
-      if (won) {
-        b.pos.y = 0.01;
-        b.pos.x = clamp(b.pos.x, GOAL_X_MIN + 0.05, GOAL_X_MAX - 0.05);
-      } else {
-        b.pos.y = 0.99;
-        b.pos.x = clamp(b.pos.x, GOAL_X_MIN + 0.05, GOAL_X_MAX - 0.05);
-      }
-      b.free = false;
-      ballRef.current = b;
-      setBallPos({ ...b.pos });
-      setBallFree(false);
+      setMatchPhase(null);
 
-      // Flash + text + effects
-      setGoalFlash(true);
-      setCameraShake(true);
-      setTimeout(() => setCameraShake(false), 500);
-
+      // Confetti on win
       if (won) {
-        setGoalText("GOAL!");
         setCelebrating(true);
         setTimeout(() => setCelebrating(false), 1500);
-        // Confetti burst
         const bits = Array.from({ length: 20 }, (_, i) => ({
           id: Date.now() + i,
           x: 20 + Math.random() * 60,
@@ -400,18 +414,11 @@ export default function FootballArena() {
         }));
         setConfetti(bits);
         setTimeout(() => setConfetti([]), 2000);
-
-        if (mult >= 4) {
-          audioRef.current?.sndBigGoal();
-        } else {
-          audioRef.current?.sndGoal();
-        }
       } else {
-        setGoalText("GOAL!");
         audioRef.current?.sndLose();
       }
 
-      // Wait 800ms so player can SEE the ball in the net, then show overlay
+      // Wait for goal effects (already playing from goalScored), then show result
       setTimeout(() => {
         setGoalFlash(false);
         setGoalText(null);
@@ -455,22 +462,23 @@ export default function FootballArena() {
       }
 
       tickCountRef.current++;
+      const t = tickCountRef.current;
       const pls = playersRef.current.map(p => ({ ...p, pos: { ...p.pos }, vel: { ...p.vel }, homePos: { ...p.homePos } }));
       const ball = { ...ballRef.current, pos: { ...ballRef.current.pos }, vel: { ...ballRef.current.vel } };
 
       const offPls = pls.filter(p => p.team === "offense" && !p.tackled && !p.isGK);
       const defPls = pls.filter(p => p.team === "defense" && !p.isGK);
+      const allField = pls.filter(p => !p.isGK);
 
       let offCarrier = pls.find(p => p.team === "offense" && p.hasBall && !p.tackled && !p.isGK);
       let defCarrier = pls.find(p => p.team === "defense" && p.hasDefBall && !p.isGK);
       const defHasBall = !!defCarrier;
 
-      // GKs should never hold the ball — clear if bugged
       for (const p of pls) {
         if (p.isGK) { p.hasBall = false; p.hasDefBall = false; }
       }
 
-      // Ball is free (flying pass/shot) — move it independently
+      // --- Ball physics ---
       if (ball.free && ball.target) {
         const d = dist(ball.pos, ball.target);
         if (d < 0.03) {
@@ -479,12 +487,13 @@ export default function FootballArena() {
           ball.vel = { x: 0, y: 0 };
         } else {
           const dir = normalize({ x: ball.target.x - ball.pos.x, y: ball.target.y - ball.pos.y });
-          ball.pos.x += dir.x * 0.025;
-          ball.pos.y += dir.y * 0.025;
+          const spd = Math.min(0.028, d * 0.5 + 0.012); // slow down near target
+          ball.pos.x += dir.x * spd;
+          ball.pos.y += dir.y * spd;
         }
       }
 
-      // If no one has ball and ball not free, nearest offense (not GK) picks up
+      // --- Loose ball pickup ---
       if (!offCarrier && !defCarrier && !ball.free && offPls.length > 0) {
         let nearest = offPls[0];
         let nd = dist(nearest.pos, ball.pos);
@@ -496,51 +505,94 @@ export default function FootballArena() {
           nearest.hasBall = true;
           offCarrier = nearest;
         } else {
-          // Run toward loose ball
-          for (const op of offPls) {
-            const s = steer(op.pos, op.vel, ball.pos, 0.009 * offSpd, 0.003);
-            op.pos = s.pos;
-            op.vel = s.vel;
+          // Only nearest 2 chase ball, rest hold position
+          const sorted = [...offPls].sort((a, b) => dist(a.pos, ball.pos) - dist(b.pos, ball.pos));
+          for (let i = 0; i < sorted.length; i++) {
+            const op = sorted[i];
+            if (i < 2) {
+              const s = steer(op.pos, op.vel, ball.pos, 0.008 * offSpd, 0.002);
+              op.pos = s.pos; op.vel = s.vel;
+            }
           }
         }
       }
 
-      const ACCEL = 0.0025;
+      const ACCEL = 0.002;
+      const FRICTION = 0.92; // natural deceleration
+
+      // --- Separation force: players avoid overlapping ---
+      const SEP_DIST = 0.065;
+      const SEP_FORCE = 0.002;
+      for (let i = 0; i < allField.length; i++) {
+        for (let j = i + 1; j < allField.length; j++) {
+          const a = allField[i], b = allField[j];
+          if (a.tackled || b.tackled) continue;
+          const d = dist(a.pos, b.pos);
+          if (d < SEP_DIST && d > 0.001) {
+            const pushX = (a.pos.x - b.pos.x) / d * SEP_FORCE;
+            const pushY = (a.pos.y - b.pos.y) / d * SEP_FORCE;
+            a.pos.x += pushX; a.pos.y += pushY;
+            b.pos.x -= pushX; b.pos.y -= pushY;
+          }
+        }
+      }
+
+      // --- Defense line Y: shift as a unit based on ball position ---
+      const defLineY = clamp(ball.pos.y - 0.15, 0.15, 0.45);
 
       for (const p of pls) {
         if (p.tackled) {
           p.tackleCooldown--;
           if (p.tackleCooldown <= 0) { p.tackled = false; p.tackleCooldown = 0; }
-          p.vel = { x: p.vel.x * 0.85, y: p.vel.y * 0.85 };
+          p.vel = { x: p.vel.x * 0.8, y: p.vel.y * 0.8 };
           continue;
         }
 
-        // Goalkeeper AI — slides along goal line tracking the ball
+        // --- Goalkeeper ---
         if (p.isGK) {
           const goalY = p.team === "defense" ? 0.06 : 0.94;
-          // Track ball X position
           const targetX = clamp(ball.pos.x, GOAL_X_MIN + 0.02, GOAL_X_MAX - 0.02);
-          const s = steer(p.pos, p.vel, { x: targetX, y: goalY }, 0.012, 0.004);
-          p.pos.x = s.pos.x;
-          p.vel.x = s.vel.x;
-          // Stay on goal line
-          p.pos.y = goalY;
-          p.vel.y = 0;
+          const s = steer(p.pos, p.vel, { x: targetX, y: goalY }, 0.010, 0.003);
+          p.pos.x = s.pos.x; p.vel.x = s.vel.x;
+          p.pos.y = goalY; p.vel.y = 0;
           p.pos.x = clamp(p.pos.x, GOAL_X_MIN - 0.02, GOAL_X_MAX + 0.02);
           continue;
         }
 
+        // Apply friction to all players
+        p.vel.x *= FRICTION;
+        p.vel.y *= FRICTION;
+
+        // --- OFFENSE ---
         if (p.team === "offense") {
           if (defHasBall && defCarrier) {
-            // Chase defense carrier
-            const s = steer(p.pos, p.vel, defCarrier.pos, 0.008 * offSpd, ACCEL);
-            p.pos = s.pos; p.vel = s.vel;
-          } else if (p.hasBall && !ball.free) {
-            // Dribble toward top goal
-            let targetY = 0.0;
-            let targetX = clamp(p.pos.x, GOAL_X_MIN, GOAL_X_MAX);
+            // Press: nearest 2 chase carrier, rest cut passing lanes
+            const distToDC = dist(p.pos, defCarrier.pos);
+            const chasers = [...offPls].sort((a, b) => dist(a.pos, defCarrier!.pos) - dist(b.pos, defCarrier!.pos));
+            const isChaser = chasers.indexOf(p) < 2;
 
-            // Find closest defender
+            if (isChaser) {
+              const s = steer(p.pos, p.vel, defCarrier.pos, 0.009 * offSpd, ACCEL * 1.2);
+              p.pos = s.pos; p.vel = s.vel;
+            } else {
+              // Hold shape, cut off passing lanes
+              const blockX = clamp(defCarrier.pos.x + (p.homePos.x - 0.5) * 0.5, 0.15, 0.85);
+              const blockY = clamp(defCarrier.pos.y + 0.12, 0.2, 0.75);
+              const s = steer(p.pos, p.vel, { x: blockX, y: blockY }, 0.005 * offSpd, ACCEL * 0.6);
+              p.pos = s.pos; p.vel = s.vel;
+            }
+
+          } else if (p.hasBall && !ball.free) {
+            // --- Dribbling with vision ---
+            let targetY = p.pos.y - 0.08; // progress gradually, not sprint
+            let targetX = p.pos.x;
+
+            // Look for open lane to goal
+            const goalDir = normalize({ x: 0.5 - p.pos.x, y: 0 - p.pos.y });
+            targetX = p.pos.x + goalDir.x * 0.05;
+            targetY = p.pos.y + goalDir.y * 0.05;
+
+            // Scan for defenders
             let closestDef: Player | null = null;
             let closestDefDist = 999;
             for (const d of defPls) {
@@ -548,66 +600,149 @@ export default function FootballArena() {
               if (dd < closestDefDist) { closestDefDist = dd; closestDef = d; }
             }
 
-            // Dodge defender
-            if (closestDef && closestDefDist < 0.16) {
+            // Dribble sideways to avoid pressure
+            if (closestDef && closestDefDist < 0.14) {
               const dx = p.pos.x - closestDef.pos.x;
-              targetX = p.pos.x + (dx > 0 ? 0.15 : -0.15);
-              targetX = clamp(targetX, 0.10, 0.90);
+              const dy = p.pos.y - closestDef.pos.y;
+              // Move perpendicular to defender
+              targetX = p.pos.x + (dx > 0 ? 0.1 : -0.1);
+              targetY = p.pos.y + Math.min(dy * -0.3, -0.02);
+              targetX = clamp(targetX, 0.08, 0.92);
+
+              // Feint: occasional sharp cut
+              if (Math.random() < 0.015) {
+                targetX = p.pos.x + (dx > 0 ? -0.12 : 0.12);
+                targetX = clamp(targetX, 0.08, 0.92);
+              }
             }
 
-            // Pass when pressured
-            if (closestDefDist < 0.10 && offPls.length > 1 && Math.random() < 0.04) {
+            // --- Passing: build up play ---
+            const passChance = closestDefDist < 0.08 ? 0.07 : (closestDefDist < 0.14 ? 0.03 : 0.012);
+            if (offPls.length > 1 && Math.random() < passChance) {
               let bestMate: Player | null = null;
               let bestScore = -1;
               for (const mate of offPls) {
                 if (mate.id === p.id) continue;
-                const mdd = defPls.reduce((min, d) => Math.min(min, dist(mate.pos, d.pos)), 999);
-                const score = (1 - mate.pos.y) * 0.5 + mdd * 0.5;
-                if (score > bestScore) { bestScore = score; bestMate = mate; }
+                // Score: forward position + space from defenders + not behind ball
+                const space = defPls.reduce((min, d) => Math.min(min, dist(mate.pos, d.pos)), 999);
+                const forward = (p.pos.y - mate.pos.y); // higher = more forward
+                const angle = Math.abs(mate.pos.x - p.pos.x); // width
+                const score = forward * 0.4 + space * 0.35 + angle * 0.25;
+                if (mate.pos.y < p.pos.y + 0.05 && score > bestScore) {
+                  bestScore = score; bestMate = mate;
+                }
+              }
+              // Back pass if no forward option
+              if (!bestMate) {
+                for (const mate of offPls) {
+                  if (mate.id === p.id) continue;
+                  const space = defPls.reduce((min, d) => Math.min(min, dist(mate.pos, d.pos)), 999);
+                  if (space > 0.12) { bestMate = mate; break; }
+                }
               }
               if (bestMate) {
                 p.hasBall = false;
                 bestMate.hasBall = true;
-                // Ball flies to teammate
                 ball.free = true;
-                ball.target = { ...bestMate.pos };
+                // Lead the pass slightly ahead of teammate
+                ball.target = { x: bestMate.pos.x, y: bestMate.pos.y - 0.02 };
                 audioRef.current?.sndPass();
               }
             }
 
-            // Shoot if close to goal
-            if (p.pos.y < 0.15 && Math.abs(p.pos.x - 0.5) < 0.25 && Math.random() < 0.08) {
+            // Shoot if in the box
+            if (p.pos.y < 0.22 && Math.abs(p.pos.x - 0.5) < 0.28 && Math.random() < 0.14) {
               p.hasBall = false;
               ball.free = true;
-              ball.target = { x: 0.4 + Math.random() * 0.2, y: 0.01 };
+              const side = p.pos.x < 0.5 ? 0.38 : 0.62;
+              ball.target = { x: side + (Math.random() - 0.5) * 0.1, y: 0.01 };
+              audioRef.current?.sndKick();
+            }
+            // Long shot from outside the box
+            if (p.pos.y < 0.35 && p.pos.y >= 0.22 && Math.random() < 0.025) {
+              p.hasBall = false;
+              ball.free = true;
+              ball.target = { x: 0.35 + Math.random() * 0.3, y: 0.01 };
               audioRef.current?.sndKick();
             }
 
-            const target = { x: targetX, y: targetY };
-            const s = steer(p.pos, p.vel, target, 0.009 * offSpd, ACCEL * offSpd);
+            targetX = clamp(targetX, 0.08, 0.92);
+            targetY = clamp(targetY, 0.04, 0.88);
+            const dribbleSpd = closestDefDist < 0.12 ? 0.007 : 0.008;
+            const s = steer(p.pos, p.vel, { x: targetX, y: targetY }, dribbleSpd * offSpd, ACCEL * offSpd);
             p.pos = s.pos; p.vel = s.vel;
 
             if (!ball.free) {
-              // Dribble: ball slightly offset, wobbles
-              const wobble = Math.sin(tickCountRef.current * 0.4) * 0.008;
-              ball.pos.x = p.pos.x + wobble;
-              ball.pos.y = p.pos.y + 0.015;
+              // Dribble: ball close to feet with natural wobble
+              const wobX = Math.sin(t * 0.35) * 0.006;
+              const wobY = Math.cos(t * 0.25) * 0.003;
+              ball.pos.x = p.pos.x + wobX + (p.vel.x > 0 ? 0.008 : -0.008);
+              ball.pos.y = p.pos.y + 0.014 + wobY;
             }
+
           } else if (!p.hasBall) {
-            // Support: run forward with spreading
-            const supportY = Math.max(0.15, p.pos.y - 0.25);
-            const spread = (p.id % 2 === 0 ? 0.1 : -0.1);
-            const target = { x: clamp(p.homePos.x + spread, 0.1, 0.9), y: supportY };
-            const s = steer(p.pos, p.vel, target, 0.006 * offSpd, ACCEL * 0.7);
-            p.pos = s.pos; p.vel = s.vel;
+            // --- Support runs: find space, make yourself available ---
+            if (offCarrier) {
+              const carrierDist = dist(p.pos, offCarrier.pos);
+              // Dynamic positioning based on carrier position
+              const idx = offPls.filter(op => op.id !== offCarrier!.id).indexOf(p);
+              const totalSupport = offPls.length - 1;
+
+              // Spread across width, stay ahead of carrier
+              let runX: number, runY: number;
+
+              if (totalSupport <= 0) {
+                runX = p.homePos.x;
+                runY = p.homePos.y;
+              } else {
+                // Spread evenly across pitch width
+                const widthSlot = totalSupport <= 1 ? 0.5 : idx / (totalSupport - 1);
+                runX = 0.15 + widthSlot * 0.70;
+                // Run ahead of carrier but not too far
+                runY = clamp(offCarrier.pos.y - 0.08 - (idx * 0.06), 0.12, offCarrier.pos.y + 0.05);
+
+                // Diagonal runs toward goal periodically
+                if (t % 80 < 40 && idx === 0) {
+                  runY -= 0.05;
+                  runX += (runX < 0.5 ? 0.08 : -0.08);
+                }
+              }
+
+              // Stay away from defenders (find space)
+              let nearestDefDist = 999;
+              for (const d of defPls) {
+                const dd = dist({ x: runX, y: runY }, d.pos);
+                if (dd < nearestDefDist) nearestDefDist = dd;
+              }
+              if (nearestDefDist < 0.10) {
+                runX += (Math.random() - 0.5) * 0.1;
+              }
+
+              runX = clamp(runX, 0.08, 0.92);
+              runY = clamp(runY, 0.10, 0.82);
+
+              const spd = carrierDist > 0.3 ? 0.007 : 0.005;
+              const s = steer(p.pos, p.vel, { x: runX, y: runY }, spd * offSpd, ACCEL * 0.8);
+              p.pos = s.pos; p.vel = s.vel;
+            } else {
+              // Return to formation slowly
+              const s = steer(p.pos, p.vel, p.homePos, 0.004 * offSpd, ACCEL * 0.5);
+              p.pos = s.pos; p.vel = s.vel;
+            }
           }
         }
 
+        // --- DEFENSE ---
         if (p.team === "defense") {
           if (p.hasDefBall && !ball.free) {
-            // Counter-attack toward bottom goal
-            let targetY = 1.0;
-            let targetX = clamp(p.pos.x, GOAL_X_MIN, GOAL_X_MAX);
+            // Counter-attack with awareness
+            let targetY = p.pos.y + 0.06;
+            let targetX = p.pos.x;
+
+            // Look for space toward goal
+            const goalDir = normalize({ x: 0.5 - p.pos.x, y: 1.0 - p.pos.y });
+            targetX = p.pos.x + goalDir.x * 0.04;
+            targetY = p.pos.y + goalDir.y * 0.04;
 
             let closestOff: Player | null = null;
             let closestOffDist = 999;
@@ -617,60 +752,99 @@ export default function FootballArena() {
             }
             if (closestOff && closestOffDist < 0.14) {
               const dx = p.pos.x - closestOff.pos.x;
-              targetX = p.pos.x + (dx > 0 ? 0.12 : -0.12);
+              targetX = p.pos.x + (dx > 0 ? 0.1 : -0.1);
               targetX = clamp(targetX, 0.08, 0.92);
             }
 
+            // Pass to a teammate if pressured
+            if (closestOffDist < 0.10 && defPls.length > 1 && Math.random() < 0.05) {
+              const mates = defPls.filter(d => d.id !== p.id);
+              const bestMate = mates.reduce((a, b) => {
+                const aDist = offPls.reduce((min, o) => Math.min(min, dist(a.pos, o.pos)), 999);
+                const bDist = offPls.reduce((min, o) => Math.min(min, dist(b.pos, o.pos)), 999);
+                return aDist > bDist ? a : b;
+              });
+              if (bestMate) {
+                p.hasDefBall = false;
+                bestMate.hasDefBall = true;
+                ball.free = true;
+                ball.target = { ...bestMate.pos };
+                audioRef.current?.sndPass();
+              }
+            }
+
             // Shoot if near goal
-            if (p.pos.y > 0.85 && Math.abs(p.pos.x - 0.5) < 0.25 && Math.random() < 0.1) {
+            if (p.pos.y > 0.78 && Math.abs(p.pos.x - 0.5) < 0.28 && Math.random() < 0.14) {
               p.hasDefBall = false;
               ball.free = true;
-              ball.target = { x: 0.4 + Math.random() * 0.2, y: 0.99 };
+              const side = p.pos.x < 0.5 ? 0.38 : 0.62;
+              ball.target = { x: side + (Math.random() - 0.5) * 0.1, y: 0.99 };
+              audioRef.current?.sndKick();
+            }
+            // Long shot
+            if (p.pos.y > 0.65 && p.pos.y <= 0.78 && Math.random() < 0.025) {
+              p.hasDefBall = false;
+              ball.free = true;
+              ball.target = { x: 0.35 + Math.random() * 0.3, y: 0.99 };
               audioRef.current?.sndKick();
             }
 
-            const target = { x: targetX, y: targetY };
-            const s = steer(p.pos, p.vel, target, 0.010 * defSpd, ACCEL * defSpd);
+            targetX = clamp(targetX, 0.08, 0.92);
+            targetY = clamp(targetY, 0.12, 0.96);
+            const s = steer(p.pos, p.vel, { x: targetX, y: targetY }, 0.008 * defSpd, ACCEL * defSpd);
             p.pos = s.pos; p.vel = s.vel;
 
             if (!ball.free) {
-              ball.pos.x = p.pos.x;
-              ball.pos.y = p.pos.y + 0.015;
+              ball.pos.x = p.pos.x + Math.sin(t * 0.3) * 0.005;
+              ball.pos.y = p.pos.y + 0.014;
             }
+
           } else if (offCarrier && !defHasBall) {
+            // --- Defensive shape: line shifts as a unit ---
             const distToCarrier = dist(p.pos, offCarrier.pos);
-            let target: Pos;
+            const idx = defPls.indexOf(p);
+            const totalDef = defPls.length;
 
-            if (distToCarrier < 0.22) {
-              target = offCarrier.pos;
+            // One or two nearest press the carrier, rest hold the line
+            const sortedByDist = [...defPls].sort((a, b) => dist(a.pos, offCarrier!.pos) - dist(b.pos, offCarrier!.pos));
+            const pressIdx = sortedByDist.indexOf(p);
+            const numPressers = Math.min(2, totalDef);
+
+            if (pressIdx < numPressers) {
+              // Press: sprint toward carrier
+              const s = steer(p.pos, p.vel, offCarrier.pos, 0.009 * defSpd, ACCEL * 1.3);
+              p.pos = s.pos; p.vel = s.vel;
             } else {
-              // Intercept position
-              const interceptX = clamp(offCarrier.pos.x, p.homePos.x - 0.15, p.homePos.x + 0.15);
-              const interceptY = Math.min(p.homePos.y + 0.05, offCarrier.pos.y - 0.06);
-              target = { x: interceptX, y: interceptY };
-            }
-            const maxSpd = distToCarrier < 0.22 ? 0.008 * defSpd : 0.006 * defSpd;
-            const s = steer(p.pos, p.vel, target, maxSpd, ACCEL * defSpd);
-            p.pos = s.pos; p.vel = s.vel;
+              // Hold defensive line — shift laterally to track ball
+              const lineIdx = pressIdx - numPressers;
+              const lineTotal = totalDef - numPressers;
+              const slot = lineTotal <= 1 ? 0.5 : lineIdx / (lineTotal - 1);
 
-            if (dist(p.pos, offCarrier.pos) > 0.18) {
-              p.pos.y = clamp(p.pos.y, 0.04, 0.58);
+              // Line X: spread across, biased toward ball side
+              const ballBias = (offCarrier.pos.x - 0.5) * 0.2;
+              const lineX = 0.15 + slot * 0.70 + ballBias;
+
+              // Line Y: track ball height as a unit
+              const lineTarget = { x: clamp(lineX, 0.08, 0.92), y: defLineY };
+              const s = steer(p.pos, p.vel, lineTarget, 0.006 * defSpd, ACCEL * 0.8);
+              p.pos = s.pos; p.vel = s.vel;
             }
+
           } else if (!defHasBall) {
-            const s = steer(p.pos, p.vel, p.homePos, 0.005, ACCEL * 0.5);
+            // Return to formation when nobody has ball
+            const s = steer(p.pos, p.vel, p.homePos, 0.004, ACCEL * 0.5);
             p.pos = s.pos; p.vel = s.vel;
           }
         }
 
+        // --- Boundary clamps ---
         p.pos.x = clamp(p.pos.x, 0.04, 0.96);
         if (p.isGK) {
-          // GK stays on their line
+          // stays on line
         } else if (p.team === "offense") {
-          // Offense can never go into their own goal (bottom)
           p.pos.y = clamp(p.pos.y, 0.04, 0.88);
         } else {
-          // Defense can never go into their own goal (top)
-          p.pos.y = clamp(p.pos.y, 0.12, 0.96);
+          p.pos.y = clamp(p.pos.y, 0.10, 0.96);
         }
       }
 
@@ -713,7 +887,7 @@ export default function FootballArena() {
       if (ball.free) {
         const gks = pls.filter(p => p.isGK);
         for (const gk of gks) {
-          if (dist(gk.pos, ball.pos) < 0.06) {
+          if (dist(gk.pos, ball.pos) < 0.04 && Math.random() < 0.7) {
             // GK catches the ball — save!
             ball.free = false;
             ball.target = null;
@@ -759,93 +933,202 @@ export default function FootballArena() {
         }
       }
 
-      // Free ball arrives at target — check if a player can collect
-      if (!ball.free) {
-        // Check goal conditions
-        if (ball.pos.y < 0.04 && ball.pos.x > GOAL_X_MIN && ball.pos.x < GOAL_X_MAX) {
-          roundResultRef.current = "win";
-          playersRef.current = pls; ballRef.current = ball;
-          setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
+      // --- GOAL DETECTION ---
+      const goalScored = (team: "offense" | "defense") => {
+        if (goalCooldownRef.current > 0) return; // just reset, ignore
+        goalCooldownRef.current = 25;
+
+        if (team === "offense") {
+          offScoreRef.current++;
+          setOffScore(offScoreRef.current);
+        } else {
+          defScoreRef.current++;
+          setDefScore(defScoreRef.current);
+        }
+
+        // Flash + effects
+        setGoalFlash(true);
+        setGoalText("GOAL!");
+        setCameraShake(true);
+        setTimeout(() => setCameraShake(false), 500);
+        setTimeout(() => { setGoalFlash(false); setGoalText(null); }, 1000);
+        audioRef.current?.sndGoal();
+
+        // In extra time, first goal ends match (golden goal)
+        if (phaseRef.current === "extra") {
+          const won = offScoreRef.current > defScoreRef.current;
+          roundResultRef.current = won ? "win" : "lose";
           return;
         }
-        if (ball.pos.y > 0.96 && ball.pos.x > GOAL_X_MIN && ball.pos.x < GOAL_X_MAX) {
-          roundResultRef.current = "lose";
-          playersRef.current = pls; ballRef.current = ball;
-          setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
-          return;
-        }
-      }
-      // Free ball hits goal
-      if (ball.free && ball.pos.y < 0.04 && ball.pos.x > GOAL_X_MIN && ball.pos.x < GOAL_X_MAX) {
-        ball.free = false;
-        roundResultRef.current = "win";
+
+        // Reset positions to center after goal
+        setTimeout(() => {
+          const np = createPlayers(oc, dc);
+          playersRef.current = np;
+          const newBs = createBall(oc);
+          ballRef.current = newBs;
+        }, 600);
+      };
+
+      if (goalCooldownRef.current > 0) goalCooldownRef.current--;
+
+      // Check goals — ball in top net = offense scores, bottom = defense scores
+      const ballInTopGoal = ball.pos.y < 0.04 && ball.pos.x > GOAL_X_MIN && ball.pos.x < GOAL_X_MAX;
+      const ballInBotGoal = ball.pos.y > 0.96 && ball.pos.x > GOAL_X_MIN && ball.pos.x < GOAL_X_MAX;
+
+      if (ballInTopGoal && goalCooldownRef.current <= 0) {
+        goalScored("offense");
         playersRef.current = pls; ballRef.current = ball;
         setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
-        return;
+        if (roundResultRef.current !== null) return;
       }
-      if (ball.free && ball.pos.y > 0.96 && ball.pos.x > GOAL_X_MIN && ball.pos.x < GOAL_X_MAX) {
-        ball.free = false;
-        roundResultRef.current = "lose";
+      if (ballInBotGoal && goalCooldownRef.current <= 0) {
+        goalScored("defense");
         playersRef.current = pls; ballRef.current = ball;
         setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
-        return;
+        if (roundResultRef.current !== null) return;
       }
 
-      // Timeout force — last 25 ticks, ensure the RIGHT team scores the RIGHT goal
-      if (tickCountRef.current >= ROUND_TICKS - 25) {
-        if (willWin) {
-          // Make sure offense has the ball and rushes to TOP goal
+      // --- HALF / PHASE MANAGEMENT ---
+      halfTickRef.current++;
+      setHalfTick(halfTickRef.current);
+      const phase = phaseRef.current;
+      const maxTicks = phase === "extra" ? EXTRA_TICKS : HALF_TICKS;
+
+      // Force goal: 2nd half only if LOSING (ties go to extra time), extra time if tied or losing
+      const shouldForce2nd = phase === "2nd" && halfTickRef.current >= maxTicks - 20;
+      const shouldForceET = phase === "extra" && halfTickRef.current >= maxTicks - 20;
+      if (shouldForce2nd || shouldForceET) {
+        const os = offScoreRef.current;
+        const ds = defScoreRef.current;
+        // 2nd half: only force if strictly losing — allow ties for extra time
+        // Extra time: force if tied or losing — must decide winner
+        const needOffGoal = willWin && (shouldForceET ? os <= ds : os < ds);
+        const needDefGoal = !willWin && (shouldForceET ? ds <= os : ds < os);
+
+        if (needOffGoal) {
           let c = pls.find(p => p.team === "offense" && p.hasBall && !p.tackled && !p.isGK);
           if (!c && !ball.free) {
-            // Force give ball to an attacker
             const any = pls.find(p => p.team === "offense" && !p.isGK && !p.tackled);
             if (any) {
-              // Clear all possession first
               for (const pp of pls) { pp.hasBall = false; pp.hasDefBall = false; }
-              any.hasBall = true;
-              c = any;
+              any.hasBall = true; c = any;
             }
           }
           if (c && !ball.free) {
-            c.pos.y -= 0.03;
-            c.pos.x += (0.5 - c.pos.x) * 0.12;
+            c.pos.y -= 0.03; c.pos.x += (0.5 - c.pos.x) * 0.12;
             c.pos.y = Math.max(c.pos.y, 0.02);
             ball.pos = { x: c.pos.x, y: c.pos.y };
           }
-        } else {
-          // Make sure defense has the ball and rushes to BOTTOM goal
-          let dc = pls.find(p => p.team === "defense" && p.hasDefBall && !p.isGK);
-          if (!dc && !ball.free) {
-            // Force give ball to a defender
+        }
+        if (needDefGoal) {
+          let dc2 = pls.find(p => p.team === "defense" && p.hasDefBall && !p.isGK);
+          if (!dc2 && !ball.free) {
             const any = pls.find(p => p.team === "defense" && !p.isGK);
             if (any) {
               for (const pp of pls) { pp.hasBall = false; pp.hasDefBall = false; }
-              any.hasDefBall = true;
-              any.pos.y = Math.max(any.pos.y, 0.55); // move them to offense half
-              dc = any;
+              any.hasDefBall = true; any.pos.y = Math.max(any.pos.y, 0.55); dc2 = any;
             }
           }
-          if (dc && !ball.free) {
-            dc.pos.y += 0.03;
-            dc.pos.x += (0.5 - dc.pos.x) * 0.12;
-            dc.pos.y = Math.min(dc.pos.y, 0.98);
-            ball.pos = { x: dc.pos.x, y: dc.pos.y };
+          if (dc2 && !ball.free) {
+            dc2.pos.y += 0.03; dc2.pos.x += (0.5 - dc2.pos.x) * 0.12;
+            dc2.pos.y = Math.min(dc2.pos.y, 0.98);
+            ball.pos = { x: dc2.pos.x, y: dc2.pos.y };
           }
         }
       }
 
-      // Hard deadline: bypass all physics, force the result visually
-      if (tickCountRef.current >= ROUND_TICKS + 5) {
-        // Place ball directly in the correct goal — guaranteed visible
-        ball.pos = willWin ? { x: 0.5, y: 0.02 } : { x: 0.5, y: 0.98 };
-        ball.free = false;
-        ball.target = null;
-        roundResultRef.current = willWin ? "win" : "lose";
-        playersRef.current = pls;
-        ballRef.current = ball;
-        setPlayers([...pls]);
-        setBallPos({ ...ball.pos }); setBallFree(false);
-        return;
+      // Hard force at end of phase
+      if (halfTickRef.current >= maxTicks + 5) {
+        const os = offScoreRef.current;
+        const ds = defScoreRef.current;
+
+        if (phase === "1st") {
+          // End of 1st half → halftime
+          loopRunning.current = false;
+          playersRef.current = pls; ballRef.current = ball;
+          setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
+          setMatchPhase("halftime");
+
+          setTimeout(() => {
+            // Start 2nd half
+            phaseRef.current = "2nd";
+            halfTickRef.current = 0;
+            goalCooldownRef.current = 0;
+            setMatchPhase("2nd");
+            setHalfTick(0);
+
+            const np2 = createPlayers(oc, dc);
+            playersRef.current = np2;
+            setPlayers(np2);
+            const bs2 = createBall(oc);
+            ballRef.current = bs2;
+            setBallPos(bs2.pos);
+            setBallFree(false);
+
+            audioRef.current?.sndWhistle();
+            loopRunning.current = true;
+            requestAnimationFrame(loop);
+          }, HALFTIME_MS);
+          return;
+        }
+
+        if (phase === "2nd") {
+          if (os === ds) {
+            // Tied → show fulltime, then extra time
+            loopRunning.current = false;
+            playersRef.current = pls; ballRef.current = ball;
+            setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
+            setMatchPhase("fulltime");
+
+            setTimeout(() => {
+              // Show "extra time coming" before starting
+              setMatchPhase("extra-intro");
+
+              setTimeout(() => {
+                phaseRef.current = "extra";
+                halfTickRef.current = 0;
+                goalCooldownRef.current = 0;
+                setMatchPhase("extra");
+                setHalfTick(0);
+
+                const np3 = createPlayers(oc, dc);
+                playersRef.current = np3;
+                setPlayers(np3);
+                const bs3 = createBall(oc);
+                ballRef.current = bs3;
+                setBallPos(bs3.pos);
+                setBallFree(false);
+
+                audioRef.current?.sndWhistle();
+                loopRunning.current = true;
+                requestAnimationFrame(loop);
+              }, 1500);
+            }, HALFTIME_MS);
+            return;
+          }
+          // Not tied → show fulltime then result
+          loopRunning.current = false;
+          playersRef.current = pls; ballRef.current = ball;
+          setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
+          setMatchPhase("fulltime");
+
+          setTimeout(() => {
+            roundResultRef.current = os > ds ? "win" : "lose";
+            finishRound(os > ds);
+          }, HALFTIME_MS);
+          return;
+        }
+
+        if (phase === "extra") {
+          // Force result with goal effects
+          ball.pos = willWin ? { x: 0.5, y: 0.02 } : { x: 0.5, y: 0.98 };
+          ball.free = false;
+          goalScored(willWin ? "offense" : "defense");
+          playersRef.current = pls; ballRef.current = ball;
+          setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
+          return;
+        }
       }
 
       playersRef.current = pls;
@@ -858,21 +1141,22 @@ export default function FootballArena() {
     loopRunning.current = true;
     let lastTime = 0;
     let rafId = 0;
-    const loop = (time: number) => {
+    const tickMs = gameSpeed === "fast" ? TICK_MS_FAST : TICK_MS_STANDARD;
+    function loop(time: number) {
       if (!loopRunning.current) return;
-      if (time - lastTime >= TICK_MS) {
+      if (time - lastTime >= tickMs) {
         lastTime = time;
         tick();
       }
       rafId = requestAnimationFrame(loop);
-    };
+    }
     rafId = requestAnimationFrame(loop);
 
     return () => {
       loopRunning.current = false;
       cancelAnimationFrame(rafId);
     };
-  }, [bet, offenseCount, defenseCount, resetField]);
+  }, [bet, offenseCount, defenseCount, resetField, gameSpeed, offenseTeam, defenseTeam]);
 
   useEffect(() => {
     return () => {
@@ -880,43 +1164,56 @@ export default function FootballArena() {
     };
   }, []);
 
-  // Show team picker if no teams selected
-  if (!gameStarted) {
-    return (
-      <TeamPicker onStart={(off, def) => {
-        audioRef.current?.unlock();
-        setOffenseTeam(off);
-        setDefenseTeam(def);
-        setGameStarted(true);
-        setTimeout(() => audioRef.current?.startBgMusic(), 200);
-      }} />
-    );
-  }
-
   return (
     <>
       <div className="app">
-        {/* Header — same as Limbo */}
+        {/* Header — swaps to scoreboard during gameplay */}
         <div className="header">
-          <div className="header-left">
-            <div className="game-name">
-              <span className="ico">{offenseTeam?.flag}</span>
-              <span>vs</span>
-              <span className="ico">{defenseTeam?.flag}</span>
-            </div>
-          </div>
-          <div className="header-balance">
-            <span className="header-bal-icon">{"\uD83D\uDCB0"}</span>
-            <span className="header-bal-value">{fmt(balance)}</span>
-          </div>
-          <div className="header-right">
-            <div className="fairplay" onClick={() => setPfModalOpen(true)}>
-              Fair Play
-            </div>
-            <div className="info-btn" onClick={() => setGameInfoOpen(true)}>
-              i
-            </div>
-          </div>
+          {(playing || matchPhase === "halftime" || matchPhase === "fulltime" || matchPhase === "extra-intro") ? (
+            <>
+              <div className="hdr-team">
+                {offenseTeam?.flagImg && <img className="hdr-flag" src={offenseTeam.flagImg} alt="" />}
+                <span className="hdr-code off">{offenseTeam?.code}</span>
+              </div>
+              <div className="hdr-score-block">
+                <span className="hdr-score">{offScore} - {defScore}</span>
+                <div className="hdr-phase-row">
+                  <span className="hdr-phase">{matchPhase === "1st" ? "1ST HALF" : matchPhase === "2nd" ? "2ND HALF" : matchPhase === "extra" ? "EXTRA TIME" : matchPhase === "fulltime" ? "FULL TIME" : matchPhase === "extra-intro" ? "EXTRA TIME" : "HALF TIME"}</span>
+                  {matchPhase !== "halftime" && matchPhase !== "fulltime" && matchPhase !== "extra-intro" && (
+                    <div className="hdr-timer">
+                      <div className="hdr-timer-fill" style={{ width: `${Math.min(100, (halfTick / (matchPhase === "extra" ? EXTRA_TICKS : HALF_TICKS)) * 100)}%` }} />
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="hdr-team">
+                <span className="hdr-code def">{defenseTeam?.code}</span>
+                {defenseTeam?.flagImg && <img className="hdr-flag" src={defenseTeam.flagImg} alt="" />}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="header-left">
+                <div className="game-name">
+                  <span className="ico">{offenseTeam?.flag}</span>
+                  <span>vs</span>
+                  <span className="ico">{defenseTeam?.flag}</span>
+                </div>
+              </div>
+              <div className="header-balance">
+                <span className="header-bal-icon">{"\uD83D\uDCB0"}</span>
+                <span className="header-bal-value">{fmt(balance)}</span>
+              </div>
+              <div className="header-right">
+                <div className="fairplay" onClick={() => setPfModalOpen(true)}>
+                  Fair Play
+                </div>
+                <div className="info-btn" onClick={() => setGameInfoOpen(true)}>
+                  i
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* History bar */}
@@ -945,8 +1242,8 @@ export default function FootballArena() {
             <div className="floodlight fl-br" />
 
             {/* Team banners on sides */}
-            <div className="team-banner left" style={{ background: `linear-gradient(180deg, ${offenseTeam?.primaryColor}, ${offenseTeam?.secondaryColor})` }} />
-            <div className="team-banner right" style={{ background: `linear-gradient(180deg, ${defenseTeam?.primaryColor}, ${defenseTeam?.secondaryColor})` }} />
+            <div className="team-banner left" style={{ background: offenseTeam ? `linear-gradient(180deg, ${offenseTeam.primaryColor}, ${offenseTeam.secondaryColor})` : 'transparent' }} />
+            <div className="team-banner right" style={{ background: defenseTeam ? `linear-gradient(180deg, ${defenseTeam.primaryColor}, ${defenseTeam.secondaryColor})` : 'transparent' }} />
 
             {/* Goal frames */}
             <div className={`goal-frame top${goalFlash && ballPos.y < 0.1 ? " scored" : ""}`}>
@@ -966,12 +1263,6 @@ export default function FootballArena() {
             {goalFlash && ballPos.y < 0.1 && <div className="net-ripple top" />}
             {goalFlash && ballPos.y > 0.9 && <div className="net-ripple bottom" />}
 
-            {/* Match timer bar */}
-            {playing && (
-              <div className="match-timer-bar">
-                <div className="match-timer-fill" style={{ width: `${Math.min(100, (tickCountRef.current / ROUND_TICKS) * 100)}%` }} />
-              </div>
-            )}
 
             {/* Field content */}
             <div className="field-clip">
@@ -979,8 +1270,12 @@ export default function FootballArena() {
               <div className="center-line" />
               <div className="center-circle" />
               <div className="center-dot" />
-              <div className="penalty-area top" />
-              <div className="penalty-area bottom" />
+              <div className="penalty-area top">
+                {defenseTeam?.flagImg && <img className="penalty-flag" src={defenseTeam.flagImg} alt="" draggable={false} />}
+              </div>
+              <div className="penalty-area bottom">
+                {offenseTeam?.flagImg && <img className="penalty-flag" src={offenseTeam.flagImg} alt="" draggable={false} />}
+              </div>
               <div className="goal-area top" />
               <div className="goal-area bottom" />
               <div className="corner-arc tl" />
@@ -1006,13 +1301,199 @@ export default function FootballArena() {
               />
             ))}
 
-            {/* Possession indicator */}
+
+            {/* Halftime overlay */}
+            {matchPhase === "halftime" && (
+              <div className="halftime-overlay">
+                <div className="ht-text">HALF TIME</div>
+                <div className="ht-score">{offScore} - {defScore}</div>
+              </div>
+            )}
+
+            {/* Fulltime overlay */}
+            {matchPhase === "fulltime" && (
+              <div className="halftime-overlay">
+                <div className="ht-text">FULL TIME</div>
+                <div className="ht-score">{offScore} - {defScore}</div>
+              </div>
+            )}
+
+            {/* Extra time intro overlay */}
+            {matchPhase === "extra-intro" && (
+              <div className="halftime-overlay">
+                <div className="ht-text">EXTRA TIME</div>
+                <div className="ht-sub">Next goal wins</div>
+              </div>
+            )}
+
+            {/* Bet modal on stadium — visible when NOT playing */}
+            {!playing && !roundResult && (
+              <div className="bet-modal-overlay">
+                <div className="bet-modal">
+                  {/* --- TEAM SELECTION MODE --- */}
+                  {(!offenseTeam || showTeamPicker) ? (
+                    <>
+                      <div className="bm-pick-title">Choose Your Team</div>
+                      <div className="bm-pick-search">
+                        <input
+                          type="text"
+                          placeholder="Search..."
+                          value={teamSearch}
+                          onChange={e => setTeamSearch(e.target.value)}
+                        />
+                      </div>
+                      <div className="bm-pick-grid">
+                        {(() => {
+                          const filtered = worldCup2026Teams
+                            .filter(t => t.name.toLowerCase().includes(teamSearch.toLowerCase()) || t.code.toLowerCase().includes(teamSearch.toLowerCase()))
+                            .sort((a, b) => a.name.localeCompare(b.name));
+                          const grouped: Record<string, typeof filtered> = {};
+                          for (const t of filtered) {
+                            const letter = t.name[0].toUpperCase();
+                            (grouped[letter] ??= []).push(t);
+                          }
+                          return Object.entries(grouped).map(([letter, teams]) => (
+                            <div key={letter} className="bm-pick-group">
+                              <div className="bm-pick-letter">{letter}</div>
+                              {teams.map(team => (
+                                <button
+                                  key={team.code}
+                                  className="bm-pick-team"
+                                  onClick={() => {
+                                    const others = worldCup2026Teams.filter(t => t.code !== team.code);
+                                    const opponent = others[Math.floor(Math.random() * others.length)];
+                                    audioRef.current?.unlock();
+                                    setOffenseTeam(team);
+                                    setDefenseTeam(opponent);
+                                    setShowTeamPicker(false);
+                                    setTeamSearch("");
+                                    resetField(offenseCount, defenseCount);
+                                    setTimeout(() => audioRef.current?.startBgMusic(), 200);
+                                  }}
+                                >
+                                  <span className="bpt-flag">{team.flag}</span>
+                                  <span className="bpt-name">{team.name}</span>
+                                  <span className="bpt-code">{team.code}</span>
+                                </button>
+                              ))}
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* --- BET CONTROLS MODE --- */}
+                      {/* Team display + change */}
+                      <div className="bm-teams" onClick={() => setShowTeamPicker(true)}>
+                        <div className="bm-team-badge">
+                          <span className="bm-team-flag">{offenseTeam?.flag}</span>
+                          <span className="bm-team-name">{offenseTeam?.code}</span>
+                        </div>
+                        <span className="bm-team-vs">VS</span>
+                        <div className="bm-team-badge">
+                          <span className="bm-team-flag">{defenseTeam?.flag}</span>
+                          <span className="bm-team-name">{defenseTeam?.code}</span>
+                        </div>
+                        <span className="bm-change-btn">Change</span>
+                      </div>
+
+                      {/* Stats strip */}
+                      <div className="bm-stats">
+                        <div className="bm-stat">
+                          <span className="bm-stat-val accent">{multiplier.toFixed(2)}x</span>
+                          <span className="bm-stat-label">Multiplier</span>
+                        </div>
+                        <div className="bm-stat-divider" />
+                        <div className="bm-stat">
+                          <span className="bm-stat-val green">{winChance.toFixed(1)}%</span>
+                          <span className="bm-stat-label">Win Chance</span>
+                        </div>
+                      </div>
+
+                      {/* Formation counters */}
+                      <div className="bm-counters">
+                        <div className="bm-counter">
+                          <div className="bm-counter-ctrl">
+                            <button onClick={() => adjustCount("defense", -1)} disabled={defenseCount <= MIN_PLAYERS}>-</button>
+                            <div className="bm-counter-mid">
+                              <span className="bm-counter-val def-c">{defenseCount + 1}</span>
+                              <span className="bm-counter-tag def-c">{defenseTeam?.code || "DEF"}</span>
+                            </div>
+                            <button onClick={() => adjustCount("defense", 1)} disabled={defenseCount >= MAX_PLAYERS}>+</button>
+                          </div>
+                        </div>
+                        <span className="bm-vs">VS</span>
+                        <div className="bm-counter">
+                          <div className="bm-counter-ctrl">
+                            <button onClick={() => adjustCount("offense", -1)} disabled={offenseCount <= MIN_PLAYERS}>-</button>
+                            <div className="bm-counter-mid">
+                              <span className="bm-counter-val off-c">{offenseCount + 1}</span>
+                              <span className="bm-counter-tag off-c">{offenseTeam?.code || "ATK"}</span>
+                            </div>
+                            <button onClick={() => adjustCount("offense", 1)} disabled={offenseCount >= MAX_PLAYERS}>+</button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bet input + payout */}
+                      <div className="bm-bet-section">
+                        <div className="bm-input-wrap">
+                          <span className="bm-currency">$</span>
+                          <input
+                            type="number"
+                            value={bet}
+                            onChange={e => setBet(e.target.value)}
+                            min={MIN_BET}
+                            max={MAX_BET}
+                            step="0.01"
+                            placeholder="Bet amount"
+                          />
+                          <div className="bm-chips">
+                            <button onClick={() => setBet(prev => Math.max(MIN_BET, parseFloat(prev) / 2).toFixed(2))}>½</button>
+                            <button onClick={() => setBet(prev => Math.min(balanceRef.current, MAX_BET, parseFloat(prev) * 2).toFixed(2))}>2x</button>
+                            <button onClick={() => setBet(Math.min(balanceRef.current, MAX_BET).toFixed(2))}>Max</button>
+                          </div>
+                        </div>
+                        <div className="bm-payout-strip">
+                          <span className="bm-payout-label">Potential Win</span>
+                          <span className="bm-payout-val">${fmt(parseFloat(bet || "0") * multiplier)}</span>
+                        </div>
+                      </div>
+
+                      {/* Speed picker */}
+                      <div className="bm-speed">
+                        <button className={`bm-speed-btn${gameSpeed === "standard" ? " active" : ""}`} onClick={() => setGameSpeed("standard")}>Standard</button>
+                        <button className={`bm-speed-btn${gameSpeed === "fast" ? " active" : ""}`} onClick={() => setGameSpeed("fast")}>Fast 2x</button>
+                      </div>
+
+                      {/* Kick off */}
+                      {balance < MIN_BET && (
+                        <div className="bm-broke">Insufficient balance</div>
+                      )}
+                      <button className="bm-kick-btn" onClick={playRound} disabled={balance < MIN_BET}>
+                        <svg className="bm-kick-icon" viewBox="0 0 24 24" fill="none" width="18" height="18"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/><polygon points="10,8 16,12 10,16" fill="currentColor"/></svg>
+                        KICK OFF
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Floating bet ball during gameplay — behind players */}
             {playing && (
-              <div className="possession-indicator">
-                <div className="poss-dot" style={{ backgroundColor: ballFree ? '#666' : (players.some(p => p.hasBall) ? offenseTeam?.primaryColor : defenseTeam?.primaryColor) }} />
-                <span className="poss-label">
-                  {ballFree ? "LOOSE" : (players.some(p => p.hasBall) ? offenseTeam?.code : defenseTeam?.code)}
-                </span>
+              <div className="bet-ball-modal">
+                <div className="bet-ball">
+                  <div className="bet-ball-glow" />
+                  <div className="bet-ball-content">
+                    <span className="bb-label">BET</span>
+                    <span className="bb-amount">${fmt(parseFloat(bet || "0"))}</span>
+                    <span className="bb-sep" />
+                    <span className="bb-label">PAYOUT</span>
+                    <span className="bb-payout">${fmt(parseFloat(bet || "0") * multiplier)}</span>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1027,7 +1508,7 @@ export default function FootballArena() {
               return (
                 <div
                   key={p.id}
-                  className={`player ${p.team}${p.isGK ? " gk" : ""}${p.hasBall || p.hasDefBall ? " has-ball" : ""}${p.tackled ? " tackled" : ""}${playing && !p.tackled ? " running" : ""}${celebrating && p.team === "offense" && !p.isGK ? " celebrating" : ""}`}
+                  className={`player ${p.team}${p.isGK ? " gk" : ""}${p.hasBall || p.hasDefBall ? " has-ball" : ""}${p.tackled ? " tackled" : ""}${playing && !p.tackled ? " running" : ""}${celebrating && p.team === "offense" && !p.isGK ? " celebrating" : ""}${newPlayerIds.has(p.id) ? " entering" : ""}`}
                   style={{
                     left: `calc(${p.pos.x * 100}% - ${PLAYER_R}px)`,
                     top: `calc(${p.pos.y * 100}% - ${PLAYER_R}px)`,
@@ -1036,7 +1517,12 @@ export default function FootballArena() {
                     borderColor: `${txt}66`,
                   }}
                 >
-                  {p.isGK ? "GK" : p.id + 1}
+                  <img
+                    className="player-flag"
+                    src={p.team === "offense" ? offenseTeam?.flagImg : defenseTeam?.flagImg}
+                    alt=""
+                    draggable={false}
+                  />
                 </div>
               );
             })}
@@ -1102,8 +1588,12 @@ export default function FootballArena() {
 
             {showPayout && <div className="payout-float">{showPayout}</div>}
 
+
+
+
             {roundResult && !playing && (
               <div className="match-overlay" onClick={dismissOverlay}>
+                <div className="mo-final-score">{offScore} - {defScore}</div>
                 <div className="match-overlay-mult" style={{
                   color: roundResult === "win" ? "#10e676" : "#ED4163",
                 }}>
@@ -1113,8 +1603,8 @@ export default function FootballArena() {
                   color: roundResult === "win" ? "#10e676" : "#ED4163",
                 }}>
                   {roundResult === "win"
-                    ? `$${fmt(resultBet * resultMult)}`
-                    : `$${fmt(resultBet)}`}
+                    ? `+$${fmt(resultBet * resultMult)}`
+                    : `-$${fmt(resultBet)}`}
                 </div>
                 <div className="match-overlay-tap">Tap to continue</div>
               </div>
@@ -1122,72 +1612,6 @@ export default function FootballArena() {
           </div>
         </div>
 
-        {/* Bottom Controls */}
-        <div className="controls">
-          <div className="stats-row">
-            <div className="stat-pill">
-              <span className="s-label">Multiplier</span>
-              <span className="s-val accent">{multiplier.toFixed(2)}x</span>
-            </div>
-            <div className="stat-pill">
-              <span className="s-label">Win Chance</span>
-              <span className="s-val green">{winChance}%</span>
-            </div>
-            <div className="stat-pill">
-              <span className="s-label">Payout</span>
-              <span className="s-val green">${fmt(parseFloat(bet || "0") * multiplier)}</span>
-            </div>
-          </div>
-
-          {/* Formation +/- row — independent */}
-          <div className="ctrl-row">
-            <div className="ctrl-col" style={{ flex: 1 }}>
-              <span className="ctrl-label">Offense</span>
-              <div className="counter-control">
-                <button className="counter-btn minus" onClick={() => adjustCount("offense", -1)} disabled={playing || offenseCount <= MIN_PLAYERS}>-</button>
-                <span className="counter-value off-c">{offenseCount}</span>
-                <button className="counter-btn plus" onClick={() => adjustCount("offense", 1)} disabled={playing || offenseCount >= MAX_PLAYERS}>+</button>
-              </div>
-              <span className="counter-badge offense">Attackers</span>
-            </div>
-            <div className="ctrl-col" style={{ flex: 1 }}>
-              <span className="ctrl-label">Defense</span>
-              <div className="counter-control">
-                <button className="counter-btn minus" onClick={() => adjustCount("defense", -1)} disabled={playing || defenseCount <= MIN_PLAYERS}>-</button>
-                <span className="counter-value def-c">{defenseCount}</span>
-                <button className="counter-btn plus" onClick={() => adjustCount("defense", 1)} disabled={playing || defenseCount >= MAX_PLAYERS}>+</button>
-              </div>
-              <span className="counter-badge defense">Defenders</span>
-            </div>
-          </div>
-
-          <div className="ctrl-row">
-            <div className="ctrl-col" style={{ flex: 1 }}>
-              <span className="ctrl-label">Bet Amount</span>
-              <div className="bet-input-row">
-                <span className="currency">$</span>
-                <input
-                  type="number"
-                  value={bet}
-                  onChange={e => setBet(e.target.value)}
-                  disabled={playing}
-                  min={MIN_BET}
-                  max={MAX_BET}
-                  step="0.01"
-                />
-                <div className="chips">
-                  <button className="chip" onClick={() => setBet(prev => Math.max(MIN_BET, parseFloat(prev) / 2).toFixed(2))} disabled={playing}>&#xBD;</button>
-                  <button className="chip" onClick={() => setBet(prev => Math.min(balanceRef.current, MAX_BET, parseFloat(prev) * 2).toFixed(2))} disabled={playing}>2x</button>
-                  <button className="chip" onClick={() => setBet(Math.min(balanceRef.current, MAX_BET).toFixed(2))} disabled={playing}>Max</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <button className="play-btn" onClick={playRound} disabled={playing}>
-            {playing ? "ATTACKING..." : "KICK OFF"}
-          </button>
-        </div>
 
         {/* Bottom Bar — same as Limbo */}
         <div className="footer-bar">
@@ -1229,6 +1653,7 @@ export default function FootballArena() {
       </div>
 
       {alert && <div className="alert-toast">{alert}</div>}
+
 
       <GameInfoModal open={gameInfoOpen} onClose={() => setGameInfoOpen(false)} />
       <ProvablyFairModal open={pfModalOpen} onClose={() => setPfModalOpen(false)} />
