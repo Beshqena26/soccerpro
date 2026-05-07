@@ -1622,20 +1622,16 @@ body {
 .bm-chips {
   display: flex;
   gap: 3px;
-  padding: 0 5px;
+  padding: 0 4px;
   flex-shrink: 0;
-  background: rgba(0, 0, 0, 0.2);
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
-  margin-left: 4px;
-  padding-left: 8px;
 }
 .bm-chips button {
   width: 36px;
   height: 28px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--text-mid);
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--text);
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
