@@ -1283,7 +1283,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.4);
+  background: transparent;
   border-radius: 8px;
   animation: betModalFadeIn 0.35s ease both;
 }
@@ -1325,9 +1325,9 @@ body {
 .bm-pick-search input {
   width: 100%;
   height: 34px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(15, 33, 46, 0.95);
   color: var(--text);
   font-family: inherit;
   font-size: 12px;
@@ -1362,7 +1362,7 @@ body {
   letter-spacing: 0.06em;
   position: sticky;
   top: 0;
-  background: linear-gradient(170deg, rgba(26, 50, 66, 0.97), rgba(15, 33, 46, 0.97));
+  background: linear-gradient(170deg, rgba(26, 50, 66, 1), rgba(15, 33, 46, 1));
   z-index: 1;
 }
 .bm-pick-team {
@@ -1504,10 +1504,10 @@ body {
 .bm-counter-ctrl {
   display: flex;
   align-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.18);
+  background: rgba(15, 33, 46, 0.95);
 }
 .bm-counter-ctrl button {
   width: 36px;
@@ -1565,9 +1565,9 @@ body {
   display: flex;
   align-items: center;
   height: 40px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(15, 33, 46, 0.95);
   overflow: hidden;
   transition: border-color 0.25s, box-shadow 0.25s;
 }
@@ -1610,8 +1610,8 @@ body {
   width: 36px;
   height: 28px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(33, 55, 67, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--text-mid);
   font-size: 10px;
   font-weight: 700;
@@ -1713,24 +1713,23 @@ body {
   left: 50%;
   transform: translateX(-50%);
   z-index: 22;
-  padding: 4px 12px;
-  background: rgba(15, 33, 46, 0.5);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 6px 16px;
+  background: rgba(243, 202, 35, 0.9);
+  border: none;
   border-radius: 8px;
-  color: var(--text-dim);
-  font-size: 10px;
-  font-weight: 600;
+  color: #3F260B;
+  font-size: 11px;
+  font-weight: 700;
   font-family: inherit;
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
 }
 .field-change-team:hover {
-  background: rgba(243, 202, 35, 0.15);
-  border-color: var(--accent-border);
-  color: var(--accent);
+  background: rgba(243, 202, 35, 1);
+  transform: translateX(-50%) scale(1.05);
+  box-shadow: 0 4px 16px rgba(243, 202, 35, 0.3);
 }
 .bm-broke {
   text-align: center;
