@@ -1321,13 +1321,6 @@ export default function FootballArena() {
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", borderRadius: "inherit" }}
             />
 
-            {/* Team change button on penalty area */}
-            {!playing && !roundResult && offenseTeam && !showTeamPicker && (
-              <button className="field-change-team" onClick={() => setShowTeamPicker(true)}>
-                {offenseTeam.flag} Change Team
-              </button>
-            )}
-
             {/* DOM overlays on top of canvas */}
 
             {/* Confetti on win */}
@@ -1492,6 +1485,9 @@ export default function FootballArena() {
                           FAST
                         </button>
                       </div>
+                      <button className="bm-change-team" onClick={() => setShowTeamPicker(true)}>
+                        {offenseTeam?.flag} Change Team
+                      </button>
                     </>
                   )}
                 </div>

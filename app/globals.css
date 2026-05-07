@@ -1010,9 +1010,10 @@ body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: rgba(15, 33, 46, 0.92);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--hairline);
+  background: rgba(15, 33, 46, 0.55);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1291,9 +1292,10 @@ body {
   100% { opacity: 1; }
 }
 .bet-modal {
-  background: linear-gradient(170deg, rgba(26, 50, 66, 0.95) 0%, rgba(15, 33, 46, 0.97) 100%);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(170deg, rgba(26, 50, 66, 0.55) 0%, rgba(15, 33, 46, 0.60) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   padding: 18px 16px 16px;
   display: flex;
@@ -1704,30 +1706,24 @@ body {
   box-shadow: 0 8px 28px rgba(14, 204, 104, 0.35), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.25);
 }
 
-/* Team change button on penalty area */
-.field-change-team {
-  position: absolute;
-  bottom: 12%;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 11;
-  padding: 5px 14px;
-  background: rgba(15, 33, 46, 0.8);
-  backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+/* Change team button in modal */
+.bm-change-team {
+  width: 100%;
+  padding: 6px 0;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 8px;
-  color: var(--text-75);
+  color: var(--text-dim);
   font-size: 11px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   transition: all 0.2s;
-  white-space: nowrap;
 }
-.field-change-team:hover {
-  background: rgba(243, 202, 35, 0.12);
-  border-color: var(--accent-border);
-  color: var(--accent);
+.bm-change-team:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--text-75);
 }
 .bm-broke {
   text-align: center;
@@ -1778,7 +1774,9 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-radius: 8px;
   animation: htFadeIn 0.4s ease both;
 }
