@@ -1683,6 +1683,52 @@ body {
   box-shadow: none;
 }
 .bm-kick-icon { flex-shrink: 0; opacity: 0.7; }
+
+/* Dual game mode buttons */
+.bm-dual-btns {
+  display: flex;
+  gap: 8px;
+}
+.bm-dual-btns .bm-kick-btn {
+  flex: 1;
+  font-size: 12px;
+  height: 42px;
+  letter-spacing: 0.06em;
+}
+.bm-dual-btns .bm-kick-btn.fast {
+  background: linear-gradient(135deg, #0ECC68 0%, #0aa854 50%, #088a44 100%);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(14, 204, 104, 0.25), 0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2);
+}
+.bm-dual-btns .bm-kick-btn.fast:hover {
+  box-shadow: 0 8px 28px rgba(14, 204, 104, 0.35), 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.25);
+}
+
+/* Team change button on penalty area */
+.field-change-team {
+  position: absolute;
+  bottom: 12%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 11;
+  padding: 5px 14px;
+  background: rgba(15, 33, 46, 0.8);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: var(--text-75);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.field-change-team:hover {
+  background: rgba(243, 202, 35, 0.12);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
 .bm-broke {
   text-align: center;
   font-size: 11px;

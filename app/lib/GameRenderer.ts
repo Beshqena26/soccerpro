@@ -34,6 +34,8 @@ export interface RenderState {
   tick: number;
   cameraShake: boolean;
   tackleFlashes: TackleFlash[];
+  multiplier: string;
+  winChance: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -166,6 +168,9 @@ export class GameRenderer {
     for (const flash of state.tackleFlashes) {
       this.drawTackleFlash(flash, state.tick);
     }
+
+    // 7. Multiplier + Win Chance on sides
+    this.drawSideStats(state);
 
     ctx.restore();
   }
@@ -553,6 +558,60 @@ export class GameRenderer {
     ctx.beginPath();
     ctx.arc(fx, fy, radius, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.restore();
+  }
+
+  /* ================================================================ */
+  /*  SIDE STATS (multiplier + win chance)                             */
+  /* ================================================================ */
+
+  private drawSideStats(state: RenderState) {
+    const { ctx, w, h } = this;
+    const midY = h / 2;
+    const padX = 6;
+    const boxW = 52;
+    const boxH = 36;
+    const radius = 6;
+
+    // Left — Multiplier
+    this.drawStatBox(ctx, padX, midY - boxH / 2, boxW, boxH, radius, state.multiplier, "MULT", "#F3CA23");
+    // Right — Win Chance
+    this.drawStatBox(ctx, w - padX - boxW, midY - boxH / 2, boxW, boxH, radius, state.winChance, "WIN%", "#0ECC68");
+  }
+
+  private drawStatBox(
+    ctx: CanvasRenderingContext2D,
+    x: number, y: number, bw: number, bh: number, r: number,
+    value: string, label: string, color: string,
+  ) {
+    // Background
+    ctx.save();
+    ctx.globalAlpha = 0.75;
+    ctx.fillStyle = "rgba(15, 33, 46, 0.85)";
+    this.roundRect(ctx, x, y, bw, bh, r);
+    ctx.fill();
+    ctx.restore();
+
+    // Border
+    ctx.save();
+    ctx.globalAlpha = 0.3;
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.lineWidth = 1;
+    this.roundRect(ctx, x, y, bw, bh, r);
+    ctx.stroke();
+    ctx.restore();
+
+    // Value
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.font = `bold ${Math.round(bh * 0.38)}px system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(value, x + bw / 2, y + bh * 0.42);
+    // Label
+    ctx.fillStyle = "rgba(177, 186, 211, 0.5)";
+    ctx.font = `600 ${Math.round(bh * 0.2)}px system-ui, sans-serif`;
+    ctx.fillText(label, x + bw / 2, y + bh * 0.78);
     ctx.restore();
   }
 

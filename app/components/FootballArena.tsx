@@ -280,6 +280,10 @@ export default function FootballArena() {
   const rendererRef = useRef<GameRenderer | null>(null);
   const canvasRafRef = useRef(0);
   const canvasTacklesRef = useRef<CanvasTackleFlash[]>([]);
+  const offCountRef = useRef(offenseCount);
+  const defCountRef = useRef(defenseCount);
+  offCountRef.current = offenseCount;
+  defCountRef.current = defenseCount;
 
   useEffect(() => {
     audioRef.current = new AudioEngine();
@@ -336,6 +340,8 @@ export default function FootballArena() {
         tick: tickCountRef.current,
         cameraShake,
         tackleFlashes: canvasTacklesRef.current,
+        multiplier: getMultiplier(offCountRef.current, defCountRef.current).toFixed(2) + "x",
+        winChance: getWinChance(offCountRef.current, defCountRef.current).toFixed(1) + "%",
       };
       renderer.render(state);
       canvasRafRef.current = requestAnimationFrame(drawLoop);
@@ -1315,6 +1321,13 @@ export default function FootballArena() {
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", borderRadius: "inherit" }}
             />
 
+            {/* Team change button on penalty area */}
+            {!playing && !roundResult && offenseTeam && !showTeamPicker && (
+              <button className="field-change-team" onClick={() => setShowTeamPicker(true)}>
+                {offenseTeam.flag} Change Team
+              </button>
+            )}
+
             {/* DOM overlays on top of canvas */}
 
             {/* Confetti on win */}
@@ -1417,33 +1430,6 @@ export default function FootballArena() {
                   ) : (
                     <>
                       {/* --- BET CONTROLS MODE --- */}
-                      {/* Team display + change */}
-                      <div className="bm-teams" onClick={() => setShowTeamPicker(true)}>
-                        <div className="bm-team-badge">
-                          <span className="bm-team-flag">{offenseTeam?.flag}</span>
-                          <span className="bm-team-name">{offenseTeam?.code}</span>
-                        </div>
-                        <span className="bm-team-vs">VS</span>
-                        <div className="bm-team-badge">
-                          <span className="bm-team-flag">{defenseTeam?.flag}</span>
-                          <span className="bm-team-name">{defenseTeam?.code}</span>
-                        </div>
-                        <span className="bm-change-btn">Change</span>
-                      </div>
-
-                      {/* Stats strip */}
-                      <div className="bm-stats">
-                        <div className="bm-stat">
-                          <span className="bm-stat-val accent">{multiplier.toFixed(2)}x</span>
-                          <span className="bm-stat-label">Multiplier</span>
-                        </div>
-                        <div className="bm-stat-divider" />
-                        <div className="bm-stat">
-                          <span className="bm-stat-val green">{winChance.toFixed(1)}%</span>
-                          <span className="bm-stat-label">Win Chance</span>
-                        </div>
-                      </div>
-
                       {/* Formation counters */}
                       <div className="bm-counters">
                         <div className="bm-counter">
@@ -1494,20 +1480,18 @@ export default function FootballArena() {
                         </div>
                       </div>
 
-                      {/* Speed picker */}
-                      <div className="bm-speed">
-                        <button className={`bm-speed-btn${gameSpeed === "standard" ? " active" : ""}`} onClick={() => setGameSpeed("standard")}>Standard</button>
-                        <button className={`bm-speed-btn${gameSpeed === "fast" ? " active" : ""}`} onClick={() => setGameSpeed("fast")}>Fast 2x</button>
-                      </div>
-
-                      {/* Kick off */}
+                      {/* Two game mode buttons */}
                       {balance < MIN_BET && (
                         <div className="bm-broke">Insufficient balance</div>
                       )}
-                      <button className="bm-kick-btn" onClick={playRound} disabled={balance < MIN_BET}>
-                        <svg className="bm-kick-icon" viewBox="0 0 24 24" fill="none" width="18" height="18"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/><polygon points="10,8 16,12 10,16" fill="currentColor"/></svg>
-                        KICK OFF
-                      </button>
+                      <div className="bm-dual-btns">
+                        <button className="bm-kick-btn standard" onClick={() => { setGameSpeed("standard"); playRound(); }} disabled={balance < MIN_BET}>
+                          STANDARD
+                        </button>
+                        <button className="bm-kick-btn fast" onClick={() => { setGameSpeed("fast"); playRound(); }} disabled={balance < MIN_BET}>
+                          FAST
+                        </button>
+                      </div>
                     </>
                   )}
                 </div>
