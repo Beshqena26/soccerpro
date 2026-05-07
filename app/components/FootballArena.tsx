@@ -314,7 +314,8 @@ export default function FootballArena() {
 
     // Preload all flag images
     const allFlagUrls = worldCup2026Teams.map(t => t.flagImg);
-    renderer.preloadImages(allFlagUrls).then(() => {
+    const allRectUrls = worldCup2026Teams.map(t => t.flagRect);
+    renderer.preloadImages(allFlagUrls, allRectUrls).then(() => {
       renderer.invalidateField();
     });
 
@@ -329,8 +330,8 @@ export default function FootballArena() {
           tackled: p.tackled,
         })),
         ball: { pos: ballRef.current.pos, free: ballRef.current.free },
-        offenseTeam: offenseTeam ? { flagImg: offenseTeam.flagImg, primaryColor: offenseTeam.primaryColor, secondaryColor: offenseTeam.secondaryColor } : null,
-        defenseTeam: defenseTeam ? { flagImg: defenseTeam.flagImg, primaryColor: defenseTeam.primaryColor, secondaryColor: defenseTeam.secondaryColor } : null,
+        offenseTeam: offenseTeam ? { flagImg: offenseTeam.flagImg, flagRect: offenseTeam.flagRect, primaryColor: offenseTeam.primaryColor, secondaryColor: offenseTeam.secondaryColor } : null,
+        defenseTeam: defenseTeam ? { flagImg: defenseTeam.flagImg, flagRect: defenseTeam.flagRect, primaryColor: defenseTeam.primaryColor, secondaryColor: defenseTeam.secondaryColor } : null,
         playing,
         tick: tickCountRef.current,
         cameraShake,

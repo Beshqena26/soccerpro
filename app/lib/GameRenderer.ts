@@ -15,6 +15,7 @@ export interface PlayerState {
 
 export interface TeamAppearance {
   flagImg: string;
+  flagRect: string;
   primaryColor: string;
   secondaryColor: string;
 }
@@ -114,8 +115,8 @@ export class GameRenderer {
     this.fieldDirty = true;
   }
 
-  async preloadImages(flagUrls: string[]): Promise<void> {
-    await this.images.preload([...flagUrls, BALL_SVG_URL]);
+  async preloadImages(flagUrls: string[], rectFlagUrls: string[] = []): Promise<void> {
+    await this.images.preload([...flagUrls, ...rectFlagUrls, BALL_SVG_URL]);
   }
 
   /* ================================================================ */
@@ -364,16 +365,13 @@ export class GameRenderer {
     areaH: number,
   ) {
     if (!team) return;
-    const img = this.images.get(team.flagImg);
+    const img = this.images.get(team.flagRect);
     if (!img) return;
-
-    const size = Math.min(areaW, areaH) * 0.7;
-    const cx = x + areaW / 2;
-    const cy = y + areaH / 2;
 
     fc.save();
     fc.globalAlpha = 0.18;
-    fc.drawImage(img, cx - size / 2, cy - size / 2, size, size);
+    // Draw rectangular flag filling the penalty area
+    fc.drawImage(img, x, y, areaW, areaH);
     fc.restore();
   }
 
