@@ -1505,19 +1505,12 @@ export default function FootballArena() {
               </div>
             )}
 
-            {/* Floating bet ball during gameplay — behind players */}
+            {/* Corner badge — bet/payout during gameplay */}
             {playing && (
-              <div className="bet-ball-modal">
-                <div className="bet-ball">
-                  <div className="bet-ball-glow" />
-                  <div className="bet-ball-content">
-                    <span className="bb-label">BET</span>
-                    <span className="bb-amount">${fmt(parseFloat(bet || "0"))}</span>
-                    <span className="bb-sep" />
-                    <span className="bb-label">PAYOUT</span>
-                    <span className="bb-payout">${fmt(parseFloat(bet || "0") * multiplier)}</span>
-                  </div>
-                </div>
+              <div className="bet-badge">
+                <span className="bb-bet">${fmt(parseFloat(bet || "0"))}</span>
+                <span className="bb-arrow">→</span>
+                <span className="bb-win">${fmt(parseFloat(bet || "0") * multiplier)}</span>
               </div>
             )}
 
