@@ -7,8 +7,8 @@ export interface WorldCupTeam {
   flagImg: string;
 }
 
-// Flag images from flagcdn.com (public, free, no API key needed)
-const f = (iso: string) => `https://flagcdn.com/w80/${iso}.png`;
+// Circle flag SVGs — always crisp, designed as circles
+const f = (iso: string) => `https://hatscripts.github.io/circle-flags/flags/${iso}.svg`;
 
 export const worldCup2026Teams: WorldCupTeam[] = [
   // CONCACAF — Hosts + qualified
@@ -20,7 +20,7 @@ export const worldCup2026Teams: WorldCupTeam[] = [
   { name: "Curaçao", code: "CUW", primaryColor: "#002B7F", secondaryColor: "#F9E814", flag: "🇨🇼", flagImg: f("cw") },
 
   // UEFA
-  { name: "England", code: "ENG", primaryColor: "#FFFFFF", secondaryColor: "#CF091F", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", flagImg: f("gb-eng") },
+  { name: "England", code: "ENG", primaryColor: "#FFFFFF", secondaryColor: "#CF091F", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", flagImg: f("gb") },
   { name: "France", code: "FRA", primaryColor: "#002395", secondaryColor: "#FFFFFF", flag: "🇫🇷", flagImg: f("fr") },
   { name: "Spain", code: "ESP", primaryColor: "#AA151B", secondaryColor: "#F1BF00", flag: "🇪🇸", flagImg: f("es") },
   { name: "Germany", code: "GER", primaryColor: "#FFFFFF", secondaryColor: "#000000", flag: "🇩🇪", flagImg: f("de") },
@@ -30,7 +30,7 @@ export const worldCup2026Teams: WorldCupTeam[] = [
   { name: "Croatia", code: "CRO", primaryColor: "#FFFFFF", secondaryColor: "#FF0000", flag: "🇭🇷", flagImg: f("hr") },
   { name: "Switzerland", code: "SUI", primaryColor: "#FF0000", secondaryColor: "#FFFFFF", flag: "🇨🇭", flagImg: f("ch") },
   { name: "Austria", code: "AUT", primaryColor: "#ED2939", secondaryColor: "#FFFFFF", flag: "🇦🇹", flagImg: f("at") },
-  { name: "Scotland", code: "SCO", primaryColor: "#003087", secondaryColor: "#FFFFFF", flag: "🏴󠁧󠁢󠁳󠁣󠁴󠁿", flagImg: f("gb-sct") },
+  { name: "Scotland", code: "SCO", primaryColor: "#003087", secondaryColor: "#FFFFFF", flag: "🏴󠁧󠁢󠁳󠁣󠁴󠁿", flagImg: f("gb") },
   { name: "Norway", code: "NOR", primaryColor: "#EF2B2D", secondaryColor: "#FFFFFF", flag: "🇳🇴", flagImg: f("no") },
   { name: "Sweden", code: "SWE", primaryColor: "#FECC02", secondaryColor: "#006AA7", flag: "🇸🇪", flagImg: f("se") },
   { name: "Türkiye", code: "TUR", primaryColor: "#E30A17", secondaryColor: "#FFFFFF", flag: "🇹🇷", flagImg: f("tr") },
