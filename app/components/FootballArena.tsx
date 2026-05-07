@@ -1057,6 +1057,7 @@ export default function FootballArena() {
           playersRef.current = pls; ballRef.current = ball;
           setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
           setMatchPhase("halftime");
+          audioRef.current?.sndWhistle();
 
           phaseTimersRef.current.push(setTimeout(() => {
             if (finishedRef.current) return; // round already ended, don't restart
@@ -1089,6 +1090,7 @@ export default function FootballArena() {
             playersRef.current = pls; ballRef.current = ball;
             setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
             setMatchPhase("fulltime");
+            audioRef.current?.sndWhistle();
 
             phaseTimersRef.current.push(setTimeout(() => {
               setMatchPhase("extra-intro");
@@ -1120,6 +1122,7 @@ export default function FootballArena() {
           playersRef.current = pls; ballRef.current = ball;
           setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
           setMatchPhase("fulltime");
+          audioRef.current?.sndWhistle();
 
           phaseTimersRef.current.push(setTimeout(() => {
             roundResultRef.current = os > ds ? "win" : "lose";
