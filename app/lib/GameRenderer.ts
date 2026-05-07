@@ -169,9 +169,6 @@ export class GameRenderer {
       this.drawTackleFlash(flash, state.tick);
     }
 
-    // 7. Multiplier + Win Chance on sides
-    this.drawSideStats(state);
-
     ctx.restore();
   }
 

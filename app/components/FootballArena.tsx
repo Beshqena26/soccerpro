@@ -1321,7 +1321,22 @@ export default function FootballArena() {
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", borderRadius: "inherit" }}
             />
 
-            {/* Change team button — positioned on penalty area, above modal overlay */}
+            {/* Player counters on corners */}
+            {!playing && !roundResult && offenseTeam && (
+              <>
+                {/* Defense — top corners */}
+                <button className="corner-btn top-left" onClick={() => adjustCount("defense", -1)} disabled={defenseCount <= MIN_PLAYERS}>-</button>
+                <div key={`def-${defenseCount}`} className="corner-count top-center def-c">{defenseCount + 1}</div>
+                <button className="corner-btn top-right" onClick={() => adjustCount("defense", 1)} disabled={defenseCount >= MAX_PLAYERS}>+</button>
+
+                {/* Offense — bottom corners */}
+                <button className="corner-btn bottom-left" onClick={() => adjustCount("offense", -1)} disabled={offenseCount <= MIN_PLAYERS}>-</button>
+                <div key={`off-${offenseCount}`} className="corner-count bottom-center off-c">{offenseCount + 1}</div>
+                <button className="corner-btn bottom-right" onClick={() => adjustCount("offense", 1)} disabled={offenseCount >= MAX_PLAYERS}>+</button>
+              </>
+            )}
+
+            {/* Change team button */}
             {!playing && !roundResult && offenseTeam && !showTeamPicker && (
               <button className="field-change-team" onClick={() => setShowTeamPicker(true)}>
                 {offenseTeam.flag} Change Team
@@ -1430,35 +1445,16 @@ export default function FootballArena() {
                   ) : (
                     <>
                       {/* --- BET CONTROLS MODE --- */}
-                      {/* Formation sliders */}
-                      <div className="bm-formation">
-                        <div className="bm-slider-group">
-                          <div className="bm-slider-head">
-                            <span className="bm-slider-label def-c">{defenseTeam?.code || "DEF"}</span>
-                            <span className="bm-slider-num def-c">{defenseCount + 1}</span>
-                          </div>
-                          <input
-                            type="range"
-                            className="bm-slider def"
-                            min={MIN_PLAYERS}
-                            max={MAX_PLAYERS}
-                            value={defenseCount}
-                            onChange={e => { const v = parseInt(e.target.value); setDefenseCount(v); resetField(offenseCount, v); }}
-                          />
+                      {/* Stats strip — multiplier + win chance */}
+                      <div className="bm-stats">
+                        <div className="bm-stat">
+                          <span className="bm-stat-val accent">{multiplier.toFixed(2)}x</span>
+                          <span className="bm-stat-label">Multiplier</span>
                         </div>
-                        <div className="bm-slider-group">
-                          <div className="bm-slider-head">
-                            <span className="bm-slider-label off-c">{offenseTeam?.code || "ATK"}</span>
-                            <span className="bm-slider-num off-c">{offenseCount + 1}</span>
-                          </div>
-                          <input
-                            type="range"
-                            className="bm-slider off"
-                            min={MIN_PLAYERS}
-                            max={MAX_PLAYERS}
-                            value={offenseCount}
-                            onChange={e => { const v = parseInt(e.target.value); setOffenseCount(v); resetField(v, defenseCount); }}
-                          />
+                        <div className="bm-stat-divider" />
+                        <div className="bm-stat">
+                          <span className="bm-stat-val green">{winChance.toFixed(1)}%</span>
+                          <span className="bm-stat-label">Win Chance</span>
                         </div>
                       </div>
 
