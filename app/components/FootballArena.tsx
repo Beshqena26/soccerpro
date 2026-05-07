@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { AudioEngine } from "../lib/audio";
 import { worldCup2026Teams, type WorldCupTeam } from "../lib/teams";
+import { GameRenderer, type RenderState, type TackleFlash as CanvasTackleFlash } from "../lib/GameRenderer";
 import TeamPicker from "./TeamPicker";
 import GameInfoModal from "./GameInfoModal";
 import ProvablyFairModal from "./ProvablyFairModal";
@@ -274,6 +275,12 @@ export default function FootballArena() {
   const [pfModalOpen, setPfModalOpen] = useState(false);
   const [showTeamPicker, setShowTeamPicker] = useState(false);
 
+  // Canvas renderer
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rendererRef = useRef<GameRenderer | null>(null);
+  const canvasRafRef = useRef(0);
+  const canvasTacklesRef = useRef<CanvasTackleFlash[]>([]);
+
   useEffect(() => {
     audioRef.current = new AudioEngine();
     const np = createPlayers(5, 5);
@@ -285,6 +292,63 @@ export default function FootballArena() {
     setMounted(true);
   }, []);
   useEffect(() => { balanceRef.current = balance; }, [balance]);
+
+  // Canvas renderer setup + render loop
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const renderer = new GameRenderer(ctx);
+    rendererRef.current = renderer;
+
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      renderer.resize(canvas.width, canvas.height, dpr);
+    };
+    resize();
+
+    // Preload all flag images
+    const allFlagUrls = worldCup2026Teams.map(t => t.flagImg);
+    renderer.preloadImages(allFlagUrls).then(() => {
+      renderer.invalidateField();
+    });
+
+    const drawLoop = () => {
+      const state: RenderState = {
+        players: playersRef.current.map(p => ({
+          pos: p.pos,
+          team: p.team,
+          isGK: p.isGK,
+          hasBall: p.hasBall,
+          hasDefBall: p.hasDefBall,
+          tackled: p.tackled,
+        })),
+        ball: { pos: ballRef.current.pos, free: ballRef.current.free },
+        offenseTeam: offenseTeam ? { flagImg: offenseTeam.flagImg, primaryColor: offenseTeam.primaryColor, secondaryColor: offenseTeam.secondaryColor } : null,
+        defenseTeam: defenseTeam ? { flagImg: defenseTeam.flagImg, primaryColor: defenseTeam.primaryColor, secondaryColor: defenseTeam.secondaryColor } : null,
+        playing,
+        tick: tickCountRef.current,
+        cameraShake,
+        tackleFlashes: canvasTacklesRef.current,
+      };
+      renderer.render(state);
+      canvasRafRef.current = requestAnimationFrame(drawLoop);
+    };
+    canvasRafRef.current = requestAnimationFrame(drawLoop);
+
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+
+    return () => {
+      cancelAnimationFrame(canvasRafRef.current);
+      ro.disconnect();
+    };
+  }, [offenseTeam, defenseTeam, playing, cameraShake]);
 
   const multiplier = getMultiplier(offenseCount, defenseCount);
   const winChance = getWinChance(offenseCount, defenseCount);
@@ -870,6 +934,8 @@ export default function FootballArena() {
 
             setTackleFlashes(prev => [...prev, { id: Date.now(), pos: { ...offCarrier!.pos } }]);
             setTimeout(() => setTackleFlashes(prev => prev.slice(1)), 600);
+            canvasTacklesRef.current = [...canvasTacklesRef.current, { pos: { ...offCarrier!.pos }, startTick: tickCountRef.current }];
+            setTimeout(() => { canvasTacklesRef.current = canvasTacklesRef.current.slice(1); }, 600);
             audioRef.current?.sndTackle();
             break;
           }
@@ -886,6 +952,8 @@ export default function FootballArena() {
             ball.free = false;
             setTackleFlashes(prev => [...prev, { id: Date.now(), pos: { ...defCarrier!.pos } }]);
             setTimeout(() => setTackleFlashes(prev => prev.slice(1)), 600);
+            canvasTacklesRef.current = [...canvasTacklesRef.current, { pos: { ...defCarrier!.pos }, startTick: tickCountRef.current }];
+            setTimeout(() => { canvasTacklesRef.current = canvasTacklesRef.current.slice(1); }, 600);
             break;
           }
         }
@@ -1144,9 +1212,8 @@ export default function FootballArena() {
 
       playersRef.current = pls;
       ballRef.current = ball;
-      setPlayers([...pls]);
-      setBallPos({ ...ball.pos });
-      setBallFree(ball.free);
+      // Canvas reads directly from refs — no React state updates needed per tick
+      tickCountRef.current++;
     };
 
     loopRunning.current = true;
@@ -1241,60 +1308,13 @@ export default function FootballArena() {
         {/* Field */}
         <div className={`field-area${cameraShake ? " shake" : ""}`}>
           <div className={`football-field${goalFlash ? " goal-active" : ""}`}>
-            {/* Crowd stands behind field */}
-            <div className="crowd-stands" />
+            {/* Canvas — draws field, players, ball, effects */}
+            <canvas
+              ref={canvasRef}
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", borderRadius: "inherit" }}
+            />
 
-            {/* Floodlights */}
-            <div className="floodlight fl-tl" />
-            <div className="floodlight fl-tr" />
-            <div className="floodlight fl-bl" />
-            <div className="floodlight fl-br" />
-
-            {/* Team banners on sides */}
-            <div className="team-banner left" style={{ background: offenseTeam ? `linear-gradient(180deg, ${offenseTeam.primaryColor}, ${offenseTeam.secondaryColor})` : 'transparent' }} />
-            <div className="team-banner right" style={{ background: defenseTeam ? `linear-gradient(180deg, ${defenseTeam.primaryColor}, ${defenseTeam.secondaryColor})` : 'transparent' }} />
-
-            {/* Goal frames */}
-            <div className={`goal-frame top${goalFlash && ballPos.y < 0.1 ? " scored" : ""}`}>
-              <div className="goal-net-mesh" />
-              <div className="goal-post left" />
-              <div className="goal-post right" />
-              <div className="goal-crossbar" />
-            </div>
-            <div className={`goal-frame bottom${goalFlash && ballPos.y > 0.9 ? " scored" : ""}`}>
-              <div className="goal-net-mesh" />
-              <div className="goal-post left" />
-              <div className="goal-post right" />
-              <div className="goal-crossbar" />
-            </div>
-
-            {/* Net ripple on goal */}
-            {goalFlash && ballPos.y < 0.1 && <div className="net-ripple top" />}
-            {goalFlash && ballPos.y > 0.9 && <div className="net-ripple bottom" />}
-
-
-            {/* Field content */}
-            <div className="field-clip">
-              <div className="field-stripes" />
-              <div className="center-line" />
-              <div className="center-circle" />
-              <div className="center-dot" />
-              <div className="penalty-area top">
-                {defenseTeam?.flagImg && <img className="penalty-flag" src={defenseTeam.flagImg} alt="" draggable={false} />}
-              </div>
-              <div className="penalty-area bottom">
-                {offenseTeam?.flagImg && <img className="penalty-flag" src={offenseTeam.flagImg} alt="" draggable={false} />}
-              </div>
-              <div className="goal-area top" />
-              <div className="goal-area bottom" />
-              <div className="corner-arc tl" />
-              <div className="corner-arc tr" />
-              <div className="corner-arc bl" />
-              <div className="corner-arc br" />
-              <div className="penalty-dot top" />
-              <div className="penalty-dot bottom" />
-            </div>
-
+            {/* DOM overlays on top of canvas */}
 
             {/* Confetti on win */}
             {confetti.map(c => (
@@ -1310,6 +1330,9 @@ export default function FootballArena() {
               />
             ))}
 
+            {goalFlash && <div className="goal-flash" />}
+            {goalText && <div className="goal-text">{goalText}</div>}
+            {showPayout && <div className="payout-float">{showPayout}</div>}
 
             {/* Halftime overlay */}
             {matchPhase === "halftime" && (
@@ -1506,96 +1529,6 @@ export default function FootballArena() {
               </div>
             )}
 
-            {mounted && players.map(p => {
-              const team = p.team === "offense" ? offenseTeam : defenseTeam;
-              const bg = p.isGK
-                ? (p.team === "offense" ? team?.secondaryColor : team?.secondaryColor)
-                : team?.primaryColor;
-              const txt = p.isGK
-                ? (p.team === "offense" ? team?.primaryColor : team?.primaryColor)
-                : team?.secondaryColor;
-              return (
-                <div
-                  key={p.id}
-                  className={`player ${p.team}${p.isGK ? " gk" : ""}${p.hasBall || p.hasDefBall ? " has-ball" : ""}${p.tackled ? " tackled" : ""}${playing && !p.tackled ? " running" : ""}${celebrating && p.team === "offense" && !p.isGK ? " celebrating" : ""}${newPlayerIds.has(p.id) ? " entering" : ""}`}
-                  style={{
-                    left: `calc(${p.pos.x * 100}% - ${PLAYER_R}px)`,
-                    top: `calc(${p.pos.y * 100}% - ${PLAYER_R}px)`,
-                    background: `linear-gradient(135deg, ${bg}, ${bg}dd)`,
-                    color: txt,
-                    borderColor: `${txt}66`,
-                  }}
-                >
-                  <img
-                    className="player-flag"
-                    src={p.team === "offense" ? offenseTeam?.flagImg : defenseTeam?.flagImg}
-                    alt=""
-                    draggable={false}
-                  />
-                </div>
-              );
-            })}
-
-            {mounted && <div
-              className={`ball-wrap${playing ? " rolling" : ""}${ballFree ? " flying" : ""}`}
-              style={{
-                left: `calc(${ballPos.x * 100}% - 8px)`,
-                top: `calc(${ballPos.y * 100}% - 8px)`,
-              }}
-            >
-              <svg className="ball-inner" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <radialGradient id="ballBase" cx="0.38" cy="0.32" r="0.65">
-                    <stop offset="0%" stopColor="#fafafa"/>
-                    <stop offset="70%" stopColor="#e8e8e4"/>
-                    <stop offset="100%" stopColor="#c8c8c0"/>
-                  </radialGradient>
-                  <radialGradient id="ballHighlight" cx="0.3" cy="0.25" r="0.35">
-                    <stop offset="0%" stopColor="rgba(255,255,255,0.7)"/>
-                    <stop offset="100%" stopColor="rgba(255,255,255,0)"/>
-                  </radialGradient>
-                  <radialGradient id="ballShadow" cx="0.6" cy="0.7" r="0.5">
-                    <stop offset="0%" stopColor="rgba(0,0,0,0)"/>
-                    <stop offset="100%" stopColor="rgba(0,0,0,0.12)"/>
-                  </radialGradient>
-                </defs>
-                {/* Base sphere */}
-                <circle cx="32" cy="32" r="30" fill="url(#ballBase)" stroke="#aaa" strokeWidth="0.8"/>
-                {/* Seam lines — white hexagon outlines */}
-                <path d="M32,8 L38,14 L36,22 L28,22 L26,14 Z" fill="none" stroke="#bbb" strokeWidth="0.7"/>
-                <path d="M46,18 L52,26 L48,34 L40,32 L38,24 Z" fill="none" stroke="#bbb" strokeWidth="0.7"/>
-                <path d="M18,18 L26,24 L24,32 L16,34 L12,26 Z" fill="none" stroke="#bbb" strokeWidth="0.7"/>
-                <path d="M44,40 L50,36 L54,42 L50,50 L42,48 Z" fill="none" stroke="#bbb" strokeWidth="0.7"/>
-                <path d="M20,40 L22,48 L14,50 L10,42 L14,36 Z" fill="none" stroke="#bbb" strokeWidth="0.7"/>
-                <path d="M28,44 L36,44 L40,52 L32,58 L24,52 Z" fill="none" stroke="#bbb" strokeWidth="0.7"/>
-                {/* Black pentagons */}
-                <path d="M32,10 L37,15 L35,21 L29,21 L27,15 Z" fill="#222"/>
-                <path d="M48,20 L52,27 L49,33 L41,31 L39,25 Z" fill="#222"/>
-                <path d="M16,20 L25,25 L23,31 L15,33 L12,27 Z" fill="#222"/>
-                <path d="M45,41 L50,38 L53,43 L49,49 L43,47 Z" fill="#222"/>
-                <path d="M19,41 L21,47 L15,49 L11,43 L14,38 Z" fill="#222"/>
-                <path d="M29,45 L35,45 L39,51 L32,56 L25,51 Z" fill="#222"/>
-                {/* 3D highlight */}
-                <circle cx="32" cy="32" r="30" fill="url(#ballHighlight)"/>
-                {/* Subtle bottom shadow */}
-                <circle cx="32" cy="32" r="30" fill="url(#ballShadow)"/>
-                {/* Edge rim */}
-                <circle cx="32" cy="32" r="30" fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="1.5"/>
-              </svg>
-            </div>}
-
-            {goalFlash && <div className="goal-flash" />}
-            {goalText && <div className="goal-text">{goalText}</div>}
-
-            {tackleFlashes.map(tf => (
-              <div
-                key={tf.id}
-                className="tackle-flash"
-                style={{ left: `${tf.pos.x * 100}%`, top: `${tf.pos.y * 100}%` }}
-              />
-            ))}
-
-            {showPayout && <div className="payout-float">{showPayout}</div>}
 
 
 
