@@ -260,6 +260,8 @@ export default function FootballArena() {
   const overlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loopRunning = useRef(false);
   const finishedRef = useRef(false);
+  const rafIdRef = useRef(0);
+  const phaseTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const audioRef = useRef<AudioEngine | null>(null);
   const phaseRef = useRef<"1st" | "2nd" | "extra">("1st");
   const halfTickRef = useRef(0);
@@ -348,7 +350,13 @@ export default function FootballArena() {
       return;
     }
 
+    // Kill any previous round's loops and timers
+    loopRunning.current = false;
+    cancelAnimationFrame(rafIdRef.current);
+    for (const t of phaseTimersRef.current) clearTimeout(t);
+    phaseTimersRef.current = [];
     if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
+
     setRoundResult(null);
     setGoalFlash(false);
     setGoalText(null);
@@ -962,12 +970,12 @@ export default function FootballArena() {
         }
 
         // Reset positions to center after goal
-        setTimeout(() => {
+        phaseTimersRef.current.push(setTimeout(() => {
           const np = createPlayers(oc, dc);
           playersRef.current = np;
           const newBs = createBall(oc);
           ballRef.current = newBs;
-        }, 600);
+        }, 600));
       };
 
       if (goalCooldownRef.current > 0) goalCooldownRef.current--;
@@ -1050,7 +1058,8 @@ export default function FootballArena() {
           setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
           setMatchPhase("halftime");
 
-          setTimeout(() => {
+          phaseTimersRef.current.push(setTimeout(() => {
+            if (!loopRunning.current && phaseRef.current === "1st") return; // stale
             // Start 2nd half
             phaseRef.current = "2nd";
             halfTickRef.current = 0;
@@ -1068,8 +1077,8 @@ export default function FootballArena() {
 
             audioRef.current?.sndWhistle();
             loopRunning.current = true;
-            requestAnimationFrame(loop);
-          }, HALFTIME_MS);
+            rafIdRef.current = requestAnimationFrame(loop);
+          }, HALFTIME_MS));
           return;
         }
 
@@ -1081,11 +1090,10 @@ export default function FootballArena() {
             setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
             setMatchPhase("fulltime");
 
-            setTimeout(() => {
-              // Show "extra time coming" before starting
+            phaseTimersRef.current.push(setTimeout(() => {
               setMatchPhase("extra-intro");
 
-              setTimeout(() => {
+              phaseTimersRef.current.push(setTimeout(() => {
                 phaseRef.current = "extra";
                 halfTickRef.current = 0;
                 goalCooldownRef.current = 0;
@@ -1102,9 +1110,9 @@ export default function FootballArena() {
 
                 audioRef.current?.sndWhistle();
                 loopRunning.current = true;
-                requestAnimationFrame(loop);
-              }, 1500);
-            }, HALFTIME_MS);
+                rafIdRef.current = requestAnimationFrame(loop);
+              }, 1500));
+            }, HALFTIME_MS));
             return;
           }
           // Not tied → show fulltime then result
@@ -1113,10 +1121,10 @@ export default function FootballArena() {
           setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
           setMatchPhase("fulltime");
 
-          setTimeout(() => {
+          phaseTimersRef.current.push(setTimeout(() => {
             roundResultRef.current = os > ds ? "win" : "lose";
             finishRound(os > ds);
-          }, HALFTIME_MS);
+          }, HALFTIME_MS));
           return;
         }
 
@@ -1140,7 +1148,6 @@ export default function FootballArena() {
 
     loopRunning.current = true;
     let lastTime = 0;
-    let rafId = 0;
     const tickMs = gameSpeed === "fast" ? TICK_MS_FAST : TICK_MS_STANDARD;
     function loop(time: number) {
       if (!loopRunning.current) return;
@@ -1148,19 +1155,18 @@ export default function FootballArena() {
         lastTime = time;
         tick();
       }
-      rafId = requestAnimationFrame(loop);
+      rafIdRef.current = requestAnimationFrame(loop);
     }
-    rafId = requestAnimationFrame(loop);
-
-    return () => {
-      loopRunning.current = false;
-      cancelAnimationFrame(rafId);
-    };
+    rafIdRef.current = requestAnimationFrame(loop);
   }, [bet, offenseCount, defenseCount, resetField, gameSpeed, offenseTeam, defenseTeam]);
 
   useEffect(() => {
     return () => {
       if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
+      loopRunning.current = false;
+      cancelAnimationFrame(rafIdRef.current);
+      for (const t of phaseTimersRef.current) clearTimeout(t);
+      phaseTimersRef.current = [];
     };
   }, []);
 
