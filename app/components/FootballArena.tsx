@@ -1430,27 +1430,30 @@ export default function FootballArena() {
                   ) : (
                     <>
                       {/* --- BET CONTROLS MODE --- */}
-                      {/* Formation counters */}
-                      <div className="bm-counters">
-                        <div className="bm-counter">
-                          <div className="bm-counter-ctrl">
-                            <button onClick={() => adjustCount("defense", -1)} disabled={defenseCount <= MIN_PLAYERS}>-</button>
-                            <div className="bm-counter-mid">
-                              <span className="bm-counter-val def-c">{defenseCount + 1}</span>
-                              <span className="bm-counter-tag def-c">{defenseTeam?.code || "DEF"}</span>
-                            </div>
-                            <button onClick={() => adjustCount("defense", 1)} disabled={defenseCount >= MAX_PLAYERS}>+</button>
+                      {/* Formation pickers */}
+                      <div className="bm-formation">
+                        <div className="bm-form-group">
+                          <span className="bm-form-label def-c">{defenseTeam?.code || "DEF"}</span>
+                          <div className="bm-pills">
+                            {Array.from({ length: MAX_PLAYERS }, (_, i) => i + 1).map(n => (
+                              <button
+                                key={`d${n}`}
+                                className={`bm-pill${n === defenseCount ? " active def" : ""}`}
+                                onClick={() => { setDefenseCount(n); resetField(offenseCount, n); }}
+                              >{n + 1}</button>
+                            ))}
                           </div>
                         </div>
-                        <span className="bm-vs">VS</span>
-                        <div className="bm-counter">
-                          <div className="bm-counter-ctrl">
-                            <button onClick={() => adjustCount("offense", -1)} disabled={offenseCount <= MIN_PLAYERS}>-</button>
-                            <div className="bm-counter-mid">
-                              <span className="bm-counter-val off-c">{offenseCount + 1}</span>
-                              <span className="bm-counter-tag off-c">{offenseTeam?.code || "ATK"}</span>
-                            </div>
-                            <button onClick={() => adjustCount("offense", 1)} disabled={offenseCount >= MAX_PLAYERS}>+</button>
+                        <div className="bm-form-group">
+                          <span className="bm-form-label off-c">{offenseTeam?.code || "ATK"}</span>
+                          <div className="bm-pills">
+                            {Array.from({ length: MAX_PLAYERS }, (_, i) => i + 1).map(n => (
+                              <button
+                                key={`o${n}`}
+                                className={`bm-pill${n === offenseCount ? " active off" : ""}`}
+                                onClick={() => { setOffenseCount(n); resetField(n, defenseCount); }}
+                              >{n + 1}</button>
+                            ))}
                           </div>
                         </div>
                       </div>

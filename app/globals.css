@@ -1487,73 +1487,74 @@ body {
   flex-shrink: 0;
 }
 
-/* Formation counters */
-.bm-counters {
+/* Formation pill pickers */
+.bm-formation {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bm-form-group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
-.bm-counter { flex: 1; }
-.bm-vs {
-  font-size: 10px;
-  font-weight: 800;
-  color: rgba(255, 255, 255, 0.2);
-  letter-spacing: 0.08em;
-  flex-shrink: 0;
+.bm-form-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  min-width: 30px;
+  text-align: right;
 }
-.bm-counter-ctrl {
+.bm-form-label.def-c { color: var(--accent); }
+.bm-form-label.off-c { color: var(--green); }
+.bm-pills {
   display: flex;
-  align-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  overflow: hidden;
-  background: rgba(15, 33, 46, 0.95);
+  gap: 3px;
+  flex: 1;
 }
-.bm-counter-ctrl button {
-  width: 36px;
-  height: 38px;
-  border: none;
-  background: transparent;
-  color: var(--text-75);
-  font-size: 18px;
-  font-weight: 600;
-  cursor: pointer;
+.bm-pill {
+  flex: 1;
+  height: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 7px;
+  background: rgba(15, 33, 46, 0.9);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 700;
   font-family: inherit;
+  cursor: pointer;
   transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
 }
-.bm-counter-ctrl button:hover:not(:disabled) {
-  background: rgba(243, 202, 35, 0.1);
-  color: var(--accent);
+.bm-pill:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text-75);
+  transform: scale(1.08);
+}
+.bm-pill:active {
+  transform: scale(0.92);
+}
+.bm-pill.active {
   transform: scale(1.1);
-}
-.bm-counter-ctrl button:active:not(:disabled) { transform: scale(0.9); }
-.bm-counter-ctrl button:disabled { opacity: 0.2; cursor: not-allowed; }
-.bm-counter-mid {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  padding: 4px 0;
-}
-.bm-counter-val {
-  font-size: 20px;
   font-weight: 800;
-  line-height: 1;
+  border-width: 2px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
 }
-.bm-counter-val.def-c { color: var(--accent); }
-.bm-counter-val.off-c { color: var(--green); }
-.bm-counter-tag {
-  font-size: 7px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  opacity: 0.6;
+.bm-pill.active.def {
+  background: rgba(243, 202, 35, 0.2);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 2px 10px rgba(243, 202, 35, 0.15);
 }
-.bm-counter-tag.def-c { color: var(--accent); }
-.bm-counter-tag.off-c { color: var(--green); }
+.bm-pill.active.off {
+  background: rgba(14, 204, 104, 0.2);
+  border-color: var(--green);
+  color: var(--green);
+  box-shadow: 0 2px 10px rgba(14, 204, 104, 0.15);
+}
 
 /* Bet input section */
 .bm-bet-section {
@@ -2652,8 +2653,8 @@ body {
   .bm-stat-val { font-size: 15px; }
   .bm-stat-label { font-size: 7px; }
   .bm-stat-divider { height: 22px; }
-  .bm-counter-ctrl button { width: 32px; height: 34px; font-size: 16px; }
-  .bm-counter-val { font-size: 17px; }
+  .bm-pill { height: 26px; font-size: 10px; border-radius: 6px; }
+  .bm-form-label { font-size: 8px; min-width: 26px; }
   .bm-input-wrap { height: 36px; }
   .bm-input-wrap input { font-size: 13px; }
   .bm-chips button { width: 32px; height: 24px; font-size: 9px; }
