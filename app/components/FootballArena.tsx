@@ -1059,7 +1059,7 @@ export default function FootballArena() {
           setMatchPhase("halftime");
 
           phaseTimersRef.current.push(setTimeout(() => {
-            if (!loopRunning.current && phaseRef.current === "1st") return; // stale
+            if (finishedRef.current) return; // round already ended, don't restart
             // Start 2nd half
             phaseRef.current = "2nd";
             halfTickRef.current = 0;
