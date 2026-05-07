@@ -1010,7 +1010,7 @@ body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: rgba(15, 33, 46, 0.55);
+  background: rgba(15, 33, 46, 0.5);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -1292,9 +1292,9 @@ body {
   100% { opacity: 1; }
 }
 .bet-modal {
-  background: rgba(15, 33, 46, 0.75);
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  background: rgba(15, 33, 46, 0.5);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow:
     0 20px 60px rgba(0, 0, 0, 0.3),
@@ -1586,7 +1586,7 @@ body {
   height: 40px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
-  background: rgba(15, 33, 46, 0.7);
+  background: rgba(255, 255, 255, 0.1);
   overflow: hidden;
   transition: border-color 0.25s, box-shadow 0.25s;
 }
@@ -1799,9 +1799,9 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(15, 33, 46, 0.5);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-radius: 8px;
   animation: htFadeIn 0.4s ease both;
 }
@@ -2622,8 +2622,8 @@ body {
   .bm-slider-num { font-size: 15px; }
   .bm-slider-label { font-size: 8px; }
   .bm-slider::-webkit-slider-thumb { width: 18px; height: 18px; }
-  .bm-input-wrap { height: 36px; }
-  .bm-input-wrap input { font-size: 13px; }
+  .bm-input-wrap { height: 42px; }
+  .bm-input-wrap input { font-size: 16px; }
   .bm-chips button { width: 32px; height: 24px; font-size: 9px; }
   .bm-payout-val { font-size: 14px; }
   .bm-speed-btn { height: 28px; font-size: 10px; }
