@@ -1586,7 +1586,7 @@ body {
   height: 40px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(15, 33, 46, 0.7);
   overflow: hidden;
   transition: border-color 0.25s, box-shadow 0.25s;
 }
