@@ -1430,31 +1430,35 @@ export default function FootballArena() {
                   ) : (
                     <>
                       {/* --- BET CONTROLS MODE --- */}
-                      {/* Formation pickers */}
+                      {/* Formation sliders */}
                       <div className="bm-formation">
-                        <div className="bm-form-group">
-                          <span className="bm-form-label def-c">{defenseTeam?.code || "DEF"}</span>
-                          <div className="bm-pills">
-                            {Array.from({ length: MAX_PLAYERS }, (_, i) => i + 1).map(n => (
-                              <button
-                                key={`d${n}`}
-                                className={`bm-pill${n === defenseCount ? " active def" : ""}`}
-                                onClick={() => { setDefenseCount(n); resetField(offenseCount, n); }}
-                              >{n + 1}</button>
-                            ))}
+                        <div className="bm-slider-group">
+                          <div className="bm-slider-head">
+                            <span className="bm-slider-label def-c">{defenseTeam?.code || "DEF"}</span>
+                            <span className="bm-slider-num def-c">{defenseCount + 1}</span>
                           </div>
+                          <input
+                            type="range"
+                            className="bm-slider def"
+                            min={MIN_PLAYERS}
+                            max={MAX_PLAYERS}
+                            value={defenseCount}
+                            onChange={e => { const v = parseInt(e.target.value); setDefenseCount(v); resetField(offenseCount, v); }}
+                          />
                         </div>
-                        <div className="bm-form-group">
-                          <span className="bm-form-label off-c">{offenseTeam?.code || "ATK"}</span>
-                          <div className="bm-pills">
-                            {Array.from({ length: MAX_PLAYERS }, (_, i) => i + 1).map(n => (
-                              <button
-                                key={`o${n}`}
-                                className={`bm-pill${n === offenseCount ? " active off" : ""}`}
-                                onClick={() => { setOffenseCount(n); resetField(n, defenseCount); }}
-                              >{n + 1}</button>
-                            ))}
+                        <div className="bm-slider-group">
+                          <div className="bm-slider-head">
+                            <span className="bm-slider-label off-c">{offenseTeam?.code || "ATK"}</span>
+                            <span className="bm-slider-num off-c">{offenseCount + 1}</span>
                           </div>
+                          <input
+                            type="range"
+                            className="bm-slider off"
+                            min={MIN_PLAYERS}
+                            max={MAX_PLAYERS}
+                            value={offenseCount}
+                            onChange={e => { const v = parseInt(e.target.value); setOffenseCount(v); resetField(v, defenseCount); }}
+                          />
                         </div>
                       </div>
 
