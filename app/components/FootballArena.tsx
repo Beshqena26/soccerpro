@@ -330,6 +330,16 @@ export default function FootballArena() {
       renderer.invalidateField();
     });
 
+    // Cached team appearance objects — only recreated when teams change
+    let cachedOffTeam: RenderState["offenseTeam"] = null;
+    let cachedDefTeam: RenderState["defenseTeam"] = null;
+    let lastOffFlag = "";
+    let lastDefFlag = "";
+    let cachedMult = "";
+    let cachedWin = "";
+    let lastOC = 0;
+    let lastDC = 0;
+
     // Single render loop — reuses state object to avoid GC pressure
     const renderState: RenderState = {
       players: [],
@@ -352,12 +362,28 @@ export default function FootballArena() {
       renderState.tackleFlashes = canvasTacklesRef.current;
       renderState.playing = loopRunning.current;
       renderState.cameraShake = cameraShakeRef.current;
+      // Only recreate team objects when team changes
       const ot = offTeamRef.current;
       const dt = defTeamRef.current;
-      renderState.offenseTeam = ot ? { flagImg: ot.flagImg, flagRect: ot.flagRect, primaryColor: ot.primaryColor, secondaryColor: ot.secondaryColor } : null;
-      renderState.defenseTeam = dt ? { flagImg: dt.flagImg, flagRect: dt.flagRect, primaryColor: dt.primaryColor, secondaryColor: dt.secondaryColor } : null;
-      renderState.multiplier = getMultiplier(offCountRef.current, defCountRef.current).toFixed(2) + "x";
-      renderState.winChance = getWinChance(offCountRef.current, defCountRef.current).toFixed(1) + "%";
+      if (ot?.flagImg !== lastOffFlag) {
+        lastOffFlag = ot?.flagImg ?? "";
+        cachedOffTeam = ot ? { flagImg: ot.flagImg, flagRect: ot.flagRect, primaryColor: ot.primaryColor, secondaryColor: ot.secondaryColor } : null;
+      }
+      if (dt?.flagImg !== lastDefFlag) {
+        lastDefFlag = dt?.flagImg ?? "";
+        cachedDefTeam = dt ? { flagImg: dt.flagImg, flagRect: dt.flagRect, primaryColor: dt.primaryColor, secondaryColor: dt.secondaryColor } : null;
+      }
+      renderState.offenseTeam = cachedOffTeam;
+      renderState.defenseTeam = cachedDefTeam;
+      // Only recompute strings when counts change
+      const oc = offCountRef.current, dc = defCountRef.current;
+      if (oc !== lastOC || dc !== lastDC) {
+        lastOC = oc; lastDC = dc;
+        cachedMult = getMultiplier(oc, dc).toFixed(2) + "x";
+        cachedWin = getWinChance(oc, dc).toFixed(1) + "%";
+      }
+      renderState.multiplier = cachedMult;
+      renderState.winChance = cachedWin;
       renderer.render(renderState);
       // Update header timer bar via DOM ref — no React re-render
       if (timerBarRef.current) {
@@ -564,12 +590,19 @@ export default function FootballArena() {
 
       tickCountRef.current++;
       const t = tickCountRef.current;
-      const pls = playersRef.current.map(p => ({ ...p, pos: { ...p.pos }, vel: { ...p.vel }, homePos: { ...p.homePos } }));
-      const ball = { ...ballRef.current, pos: { ...ballRef.current.pos }, vel: { ...ballRef.current.vel } };
+      // Mutate in place — canvas reads from refs, no React state involved
+      const pls = playersRef.current;
+      const ball = ballRef.current;
 
-      const offPls = pls.filter(p => p.team === "offense" && !p.tackled && !p.isGK);
-      const defPls = pls.filter(p => p.team === "defense" && !p.isGK);
-      const allField = pls.filter(p => !p.isGK);
+      // Reuse arrays to avoid GC pressure
+      const offPls: Player[] = [];
+      const defPls: Player[] = [];
+      const allField: Player[] = [];
+      for (const p of pls) {
+        if (!p.isGK) allField.push(p);
+        if (p.team === "offense" && !p.tackled && !p.isGK) offPls.push(p);
+        if (p.team === "defense" && !p.isGK) defPls.push(p);
+      }
 
       let offCarrier = pls.find(p => p.team === "offense" && p.hasBall && !p.tackled && !p.isGK);
       let defCarrier = pls.find(p => p.team === "defense" && p.hasDefBall && !p.isGK);
@@ -607,10 +640,16 @@ export default function FootballArena() {
           offCarrier = nearest;
         } else {
           // Only nearest 2 chase ball, rest hold position
-          const sorted = [...offPls].sort((a, b) => dist(a.pos, ball.pos) - dist(b.pos, ball.pos));
-          for (let i = 0; i < sorted.length; i++) {
-            const op = sorted[i];
-            if (i < 2) {
+          // Find 2 nearest to ball without sort allocation
+          let near1: Player | null = null, near2: Player | null = null;
+          let d1 = 999, d2 = 999;
+          for (const op of offPls) {
+            const dd = dist(op.pos, ball.pos);
+            if (dd < d1) { near2 = near1; d2 = d1; near1 = op; d1 = dd; }
+            else if (dd < d2) { near2 = op; d2 = dd; }
+          }
+          for (const op of offPls) {
+            if (op === near1 || op === near2) {
               const s = steer(op.pos, op.vel, ball.pos, 0.008 * offSpd, 0.002);
               op.pos = s.pos; op.vel = s.vel;
             }
@@ -669,8 +708,15 @@ export default function FootballArena() {
           if (defHasBall && defCarrier) {
             // Press: nearest 2 chase carrier, rest cut passing lanes
             const distToDC = dist(p.pos, defCarrier.pos);
-            const chasers = [...offPls].sort((a, b) => dist(a.pos, defCarrier!.pos) - dist(b.pos, defCarrier!.pos));
-            const isChaser = chasers.indexOf(p) < 2;
+            // Find 2 nearest chasers without sort
+            let ch1: Player | null = null, ch2: Player | null = null;
+            let cd1 = 999, cd2 = 999;
+            for (const op of offPls) {
+              const dd = dist(op.pos, defCarrier!.pos);
+              if (dd < cd1) { ch2 = ch1; cd2 = cd1; ch1 = op; cd1 = dd; }
+              else if (dd < cd2) { ch2 = op; cd2 = dd; }
+            }
+            const isChaser = p === ch1 || p === ch2;
 
             if (isChaser) {
               const s = steer(p.pos, p.vel, defCarrier.pos, 0.009 * offSpd, ACCEL * 1.2);
@@ -906,19 +952,25 @@ export default function FootballArena() {
             const idx = defPls.indexOf(p);
             const totalDef = defPls.length;
 
-            // One or two nearest press the carrier, rest hold the line
-            const sortedByDist = [...defPls].sort((a, b) => dist(a.pos, offCarrier!.pos) - dist(b.pos, offCarrier!.pos));
-            const pressIdx = sortedByDist.indexOf(p);
+            // Find 2 nearest pressers without sort
             const numPressers = Math.min(2, totalDef);
+            let dp1: Player | null = null, dp2: Player | null = null;
+            let dd1 = 999, dd2 = 999;
+            for (const d of defPls) {
+              const dd = dist(d.pos, offCarrier!.pos);
+              if (dd < dd1) { dp2 = dp1; dd2 = dd1; dp1 = d; dd1 = dd; }
+              else if (dd < dd2) { dp2 = d; dd2 = dd; }
+            }
+            const isPresser = p === dp1 || (numPressers >= 2 && p === dp2);
 
-            if (pressIdx < numPressers) {
+            if (isPresser) {
               // Press: sprint toward carrier
               const s = steer(p.pos, p.vel, offCarrier.pos, 0.009 * defSpd, ACCEL * 1.3);
               p.pos = s.pos; p.vel = s.vel;
             } else {
               // Hold defensive line — shift laterally to track ball
-              const lineIdx = pressIdx - numPressers;
-              const lineTotal = totalDef - numPressers;
+              const lineIdx = idx;
+              const lineTotal = Math.max(1, totalDef - numPressers);
               const slot = lineTotal <= 1 ? 0.5 : lineIdx / (lineTotal - 1);
 
               // Line X: spread across, biased toward ball side
@@ -1080,13 +1132,11 @@ export default function FootballArena() {
       if (ballInTopGoal && goalCooldownRef.current <= 0) {
         goalScored("offense");
         playersRef.current = pls; ballRef.current = ball;
-        setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
         if (roundResultRef.current !== null) return;
       }
       if (ballInBotGoal && goalCooldownRef.current <= 0) {
         goalScored("defense");
         playersRef.current = pls; ballRef.current = ball;
-        setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
         if (roundResultRef.current !== null) return;
       }
 
@@ -1147,8 +1197,7 @@ export default function FootballArena() {
           // End of 1st half → halftime
           loopRunning.current = false;
           playersRef.current = pls; ballRef.current = ball;
-          setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
-          setMatchPhase("halftime");
+            setMatchPhase("halftime");
           audioRef.current?.sndWhistle();
 
           phaseTimersRef.current.push(setTimeout(() => {
@@ -1180,8 +1229,7 @@ export default function FootballArena() {
             // Tied → show fulltime, then extra time
             loopRunning.current = false;
             playersRef.current = pls; ballRef.current = ball;
-            setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
-            setMatchPhase("fulltime");
+                setMatchPhase("fulltime");
             audioRef.current?.sndWhistle();
 
             phaseTimersRef.current.push(setTimeout(() => {
@@ -1212,8 +1260,7 @@ export default function FootballArena() {
           // Not tied → show fulltime then result
           loopRunning.current = false;
           playersRef.current = pls; ballRef.current = ball;
-          setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
-          setMatchPhase("fulltime");
+            setMatchPhase("fulltime");
           audioRef.current?.sndWhistle();
 
           phaseTimersRef.current.push(setTimeout(() => {
@@ -1229,8 +1276,7 @@ export default function FootballArena() {
           ball.free = false;
           goalScored(willWin ? "offense" : "defense");
           playersRef.current = pls; ballRef.current = ball;
-          setPlayers([...pls]); setBallPos({ ...ball.pos }); setBallFree(false);
-          return;
+            return;
         }
       }
 

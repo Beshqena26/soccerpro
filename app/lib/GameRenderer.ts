@@ -84,6 +84,9 @@ export class GameRenderer {
   private fieldCanvas: HTMLCanvasElement | null = null;
   private fieldDirty = true;
 
+  // Pre-rendered player circles (avoids clip() per player per frame)
+  private playerCache = new Map<string, HTMLCanvasElement>();
+
   // Camera shake state
   private shakeFrame = 0;
 
@@ -391,6 +394,46 @@ export class GameRenderer {
     return PLAYER_RADIUS_BASE * (this.h / 600);
   }
 
+  private getPlayerCircle(flagUrl: string, radius: number, color: string): HTMLCanvasElement {
+    const key = `${flagUrl}-${radius}`;
+    let cached = this.playerCache.get(key);
+    if (cached) return cached;
+
+    const size = Math.ceil(radius * 2 + 4);
+    cached = document.createElement("canvas");
+    cached.width = size;
+    cached.height = size;
+    const c = cached.getContext("2d")!;
+    const cx = size / 2;
+    const cy = size / 2;
+
+    // Clip to circle and draw flag
+    c.beginPath();
+    c.arc(cx, cy, radius, 0, Math.PI * 2);
+    c.closePath();
+
+    const img = this.images.get(flagUrl);
+    if (img) {
+      c.save();
+      c.clip();
+      c.drawImage(img, cx - radius, cy - radius, radius * 2, radius * 2);
+      c.restore();
+    } else {
+      c.fillStyle = color;
+      c.fill();
+    }
+
+    // Border
+    c.beginPath();
+    c.arc(cx, cy, radius, 0, Math.PI * 2);
+    c.strokeStyle = "rgba(255,255,255,0.75)";
+    c.lineWidth = 2;
+    c.stroke();
+
+    this.playerCache.set(key, cached);
+    return cached;
+  }
+
   private drawPlayerShadow(p: PlayerState, state: RenderState) {
     const { ctx, w, h } = this;
     const r = this.playerRadius();
@@ -429,7 +472,7 @@ export class GameRenderer {
     ctx.save();
     ctx.globalAlpha = alpha;
 
-    // Glow for ball carrier (reduced on Android for performance)
+    // Glow for ball carrier (reduced on Android)
     if (p.hasBall || p.hasDefBall) {
       ctx.shadowColor = "rgba(255,255,255,0.9)";
       ctx.shadowBlur = this.isAndroid ? 4 : 18;
@@ -438,41 +481,12 @@ export class GameRenderer {
       ctx.shadowBlur = 8;
     }
 
-    // Flag image clipped to circle
+    // Draw pre-cached player circle (no clip() per frame)
     const team = p.team === "offense" ? state.offenseTeam : state.defenseTeam;
-    const flagImg = team ? this.images.get(team.flagImg) : null;
-
-    // Circle path
-    ctx.beginPath();
-    ctx.arc(px, py, drawR, 0, Math.PI * 2);
-
-    if (flagImg) {
-      ctx.save();
-      ctx.clip();
-      ctx.drawImage(
-        flagImg,
-        px - drawR,
-        py - drawR,
-        drawR * 2,
-        drawR * 2,
-      );
-      ctx.restore();
-    } else {
-      // Fallback solid color
-      const color =
-        p.team === "offense"
-          ? state.offenseTeam?.primaryColor ?? "#3b82f6"
-          : state.defenseTeam?.primaryColor ?? "#ef4444";
-      ctx.fillStyle = color;
-      ctx.fill();
-    }
-
-    // Border
-    ctx.beginPath();
-    ctx.arc(px, py, drawR, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(255,255,255,0.75)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    const flagUrl = team?.flagImg ?? "";
+    const color = team?.primaryColor ?? (p.team === "offense" ? "#3b82f6" : "#ef4444");
+    const cached = this.getPlayerCircle(flagUrl, Math.round(drawR), color);
+    ctx.drawImage(cached, px - cached.width / 2, py - cached.height / 2);
 
     ctx.restore();
   }
