@@ -1126,12 +1126,12 @@ body {
 .corner-btn:disabled { opacity: 0.2; cursor: not-allowed; }
 
 /* Defense — top corners */
-/* Defense — near top penalty area */
-.corner-btn.top-left { top: 14%; left: 10%; }
-.corner-btn.top-right { top: 14%; right: 10%; }
-/* Offense — near bottom penalty area */
-.corner-btn.bottom-left { bottom: 14%; left: 10%; }
-.corner-btn.bottom-right { bottom: 14%; right: 10%; }
+/* Defense — pushed down from top */
+.corner-btn.top-left { top: 22%; left: 8px; }
+.corner-btn.top-right { top: 22%; right: 8px; }
+/* Offense — pushed up from bottom */
+.corner-btn.bottom-left { bottom: 22%; left: 8px; }
+.corner-btn.bottom-right { bottom: 22%; right: 8px; }
 
 /* Count display — centered on each side */
 .corner-count {
@@ -1154,13 +1154,13 @@ body {
   100% { transform: translateX(-50%) scale(1); }
 }
 .corner-count.top-center {
-  top: 12%;
+  top: 42%;
   left: 50%;
   transform: translateX(-50%);
   color: var(--accent);
 }
 .corner-count.bottom-center {
-  bottom: 12%;
+  bottom: 42%;
   left: 50%;
   transform: translateX(-50%);
   color: var(--green);
@@ -2609,13 +2609,13 @@ body {
   .fss-val { font-size: 11px; }
 
   .corner-btn { width: 36px; height: 36px; font-size: 20px; border-radius: 10px; backdrop-filter: none; background: rgba(15, 33, 46, 0.85); }
-  .corner-btn.top-left { top: 12%; left: 6%; }
-  .corner-btn.top-right { top: 12%; right: 6%; }
-  .corner-btn.bottom-left { bottom: 12%; left: 6%; }
-  .corner-btn.bottom-right { bottom: 12%; right: 6%; }
+  .corner-btn.top-left { top: 20%; left: 5px; }
+  .corner-btn.top-right { top: 20%; right: 5px; }
+  .corner-btn.bottom-left { bottom: 20%; left: 5px; }
+  .corner-btn.bottom-right { bottom: 20%; right: 5px; }
   .corner-count { font-size: 16px; padding: 4px 12px; backdrop-filter: none; background: rgba(15, 33, 46, 0.85); }
-  .corner-count.top-center { top: 10%; }
-  .corner-count.bottom-center { bottom: 10%; }
+  .corner-count.top-center { top: 40%; }
+  .corner-count.bottom-center { bottom: 40%; }
 
   .field-overlay-controls { bottom: 4px; left: 4px; right: 4px; gap: 4px; }
   .field-stat { padding: 3px 4px; }
