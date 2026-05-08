@@ -1505,9 +1505,9 @@ export default function FootballArena() {
 
 
         {/* Bet panel — below field */}
-        {!playing && !roundResult && (
-          <div className="bet-panel">
-            {(!offenseTeam || showTeamPicker) ? (
+        <div className={`bet-panel${playing || roundResult ? " panel-hidden" : ""}`}>
+          {!playing && !roundResult && (
+            (!offenseTeam || showTeamPicker) ? (
               <>
                 <div className="bm-pick-title">Choose Your Team</div>
                 <div className="bm-pick-search">
@@ -1595,9 +1595,9 @@ export default function FootballArena() {
                   </button>
                 </div>
               </>
-            )}
-          </div>
-        )}
+            )
+          )}
+        </div>
 
         {/* Bottom Bar — same as Limbo */}
         <div className="footer-bar">

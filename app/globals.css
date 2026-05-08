@@ -1309,13 +1309,17 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  animation: panelSlideUp 0.3s ease both;
   overflow-y: auto;
   max-height: 320px;
+  transition: max-height 0.4s ease, padding 0.4s ease, opacity 0.3s ease;
 }
-@keyframes panelSlideUp {
-  0% { opacity: 0; transform: translateY(20px); }
-  100% { opacity: 1; transform: translateY(0); }
+.bet-panel.panel-hidden {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  overflow: hidden;
+  border-top-color: transparent;
 }
 
 /* Team picker inside modal */
