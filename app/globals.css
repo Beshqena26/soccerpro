@@ -1110,10 +1110,12 @@ body {
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
 }
-.corner-btn:hover:not(:disabled) {
-  background: rgba(243, 202, 35, 0.2);
-  border-color: var(--accent);
-  color: var(--accent);
+@media (hover: hover) {
+  .corner-btn:hover:not(:disabled) {
+    background: rgba(243, 202, 35, 0.2);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
 }
 .corner-btn:active:not(:disabled) {
   transform: scale(0.88);
@@ -1709,12 +1711,14 @@ body {
   justify-content: center;
   gap: 8px;
 }
-.bm-kick-btn:hover {
-  transform: translateY(-2px) scale(1.01);
-  box-shadow:
-    0 8px 28px rgba(243, 202, 35, 0.35),
-    0 2px 6px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+@media (hover: hover) {
+  .bm-kick-btn:hover {
+    transform: translateY(-2px) scale(1.01);
+    box-shadow:
+      0 8px 28px rgba(243, 202, 35, 0.35),
+      0 2px 6px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
 }
 .bm-kick-btn:active {
   transform: translateY(0) scale(0.98);
@@ -1767,10 +1771,12 @@ body {
   white-space: nowrap;
   box-shadow: 0 2px 10px rgba(0,0,0,0.3);
 }
-.field-change-team:hover {
-  background: rgba(243, 202, 35, 1);
-  transform: translateX(-50%) scale(1.05);
-  box-shadow: 0 4px 16px rgba(243, 202, 35, 0.3);
+@media (hover: hover) {
+  .field-change-team:hover {
+    background: rgba(243, 202, 35, 1);
+    transform: translateX(-50%) scale(1.05);
+    box-shadow: 0 4px 16px rgba(243, 202, 35, 0.3);
+  }
 }
 .bm-broke {
   text-align: center;
