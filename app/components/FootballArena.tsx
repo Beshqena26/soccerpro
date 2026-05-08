@@ -1559,18 +1559,6 @@ export default function FootballArena() {
               </>
             ) : (
               <>
-                <div className="bm-stats">
-                  <div className="bm-stat">
-                    <span className="bm-stat-val accent">{multiplier.toFixed(2)}x</span>
-                    <span className="bm-stat-label">Multiplier</span>
-                  </div>
-                  <div className="bm-stat-divider" />
-                  <div className="bm-stat">
-                    <span className="bm-stat-val green">{winChance.toFixed(1)}%</span>
-                    <span className="bm-stat-label">Win Chance</span>
-                  </div>
-                </div>
-
                 <div className="bm-bet-section">
                   <div className="bm-input-wrap">
                     <span className="bm-currency">$</span>
