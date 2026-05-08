@@ -285,6 +285,13 @@ export default function FootballArena() {
   offCountRef.current = offenseCount;
   defCountRef.current = defenseCount;
 
+  // Detect Android and add class to disable expensive CSS effects
+  useEffect(() => {
+    if (/android/i.test(navigator.userAgent)) {
+      document.documentElement.classList.add("android");
+    }
+  }, []);
+
   useEffect(() => {
     audioRef.current = new AudioEngine();
     const np = createPlayers(5, 5);
@@ -297,7 +304,7 @@ export default function FootballArena() {
   }, []);
   useEffect(() => { balanceRef.current = balance; }, [balance]);
 
-  // Canvas renderer setup + render loop
+  // Canvas renderer setup
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -323,27 +330,40 @@ export default function FootballArena() {
       renderer.invalidateField();
     });
 
+    // Single render loop — reuses state object to avoid GC pressure
+    const renderState: RenderState = {
+      players: [],
+      ball: { pos: { x: 0.5, y: 0.5 }, free: false },
+      offenseTeam: null,
+      defenseTeam: null,
+      playing: false,
+      tick: 0,
+      cameraShake: false,
+      tackleFlashes: [],
+      multiplier: "",
+      winChance: "",
+    };
+
     const drawLoop = () => {
-      const state: RenderState = {
-        players: playersRef.current.map(p => ({
-          pos: p.pos,
-          team: p.team,
-          isGK: p.isGK,
-          hasBall: p.hasBall,
-          hasDefBall: p.hasDefBall,
-          tackled: p.tackled,
-        })),
-        ball: { pos: ballRef.current.pos, free: ballRef.current.free },
-        offenseTeam: offenseTeam ? { flagImg: offenseTeam.flagImg, flagRect: offenseTeam.flagRect, primaryColor: offenseTeam.primaryColor, secondaryColor: offenseTeam.secondaryColor } : null,
-        defenseTeam: defenseTeam ? { flagImg: defenseTeam.flagImg, flagRect: defenseTeam.flagRect, primaryColor: defenseTeam.primaryColor, secondaryColor: defenseTeam.secondaryColor } : null,
-        playing,
-        tick: tickCountRef.current,
-        cameraShake,
-        tackleFlashes: canvasTacklesRef.current,
-        multiplier: getMultiplier(offCountRef.current, defCountRef.current).toFixed(2) + "x",
-        winChance: getWinChance(offCountRef.current, defCountRef.current).toFixed(1) + "%",
-      };
-      renderer.render(state);
+      // Update render state from refs — no new objects created
+      renderState.players = playersRef.current;
+      renderState.ball = ballRef.current;
+      renderState.tick = tickCountRef.current;
+      renderState.tackleFlashes = canvasTacklesRef.current;
+      renderState.playing = loopRunning.current;
+      renderState.cameraShake = cameraShakeRef.current;
+      const ot = offTeamRef.current;
+      const dt = defTeamRef.current;
+      renderState.offenseTeam = ot ? { flagImg: ot.flagImg, flagRect: ot.flagRect, primaryColor: ot.primaryColor, secondaryColor: ot.secondaryColor } : null;
+      renderState.defenseTeam = dt ? { flagImg: dt.flagImg, flagRect: dt.flagRect, primaryColor: dt.primaryColor, secondaryColor: dt.secondaryColor } : null;
+      renderState.multiplier = getMultiplier(offCountRef.current, defCountRef.current).toFixed(2) + "x";
+      renderState.winChance = getWinChance(offCountRef.current, defCountRef.current).toFixed(1) + "%";
+      renderer.render(renderState);
+      // Update header timer bar via DOM ref — no React re-render
+      if (timerBarRef.current) {
+        const max = phaseRef.current === "extra" ? EXTRA_TICKS : HALF_TICKS;
+        timerBarRef.current.style.width = `${Math.min(100, (halfTickRef.current / max) * 100)}%`;
+      }
       canvasRafRef.current = requestAnimationFrame(drawLoop);
     };
     canvasRafRef.current = requestAnimationFrame(drawLoop);
@@ -355,7 +375,23 @@ export default function FootballArena() {
       cancelAnimationFrame(canvasRafRef.current);
       ro.disconnect();
     };
-  }, [offenseTeam, defenseTeam, playing, cameraShake]);
+  }, []);
+
+  // Update canvas renderer team data when teams change (not per-frame)
+  useEffect(() => {
+    if (!rendererRef.current) return;
+    rendererRef.current.invalidateField();
+  }, [offenseTeam, defenseTeam]);
+
+  // Keep render state team refs in sync
+  const offTeamRef = useRef(offenseTeam);
+  const defTeamRef = useRef(defenseTeam);
+  offTeamRef.current = offenseTeam;
+  defTeamRef.current = defenseTeam;
+  const cameraShakeRef = useRef(cameraShake);
+  cameraShakeRef.current = cameraShake;
+  const timerBarRef = useRef<HTMLDivElement>(null);
+
 
   const multiplier = getMultiplier(offenseCount, defenseCount);
   const winChance = getWinChance(offenseCount, defenseCount);
@@ -423,7 +459,7 @@ export default function FootballArena() {
 
     // Kill any previous round's loops and timers
     loopRunning.current = false;
-    cancelAnimationFrame(rafIdRef.current);
+    clearTimeout(rafIdRef.current);
     for (const t of phaseTimersRef.current) clearTimeout(t);
     phaseTimersRef.current = [];
     if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
@@ -925,10 +961,8 @@ export default function FootballArena() {
             ball.free = false;
             ball.target = null;
 
-            setTackleFlashes(prev => [...prev, { id: Date.now(), pos: { ...offCarrier!.pos } }]);
-            setTimeout(() => setTackleFlashes(prev => prev.slice(1)), 600);
             canvasTacklesRef.current = [...canvasTacklesRef.current, { pos: { ...offCarrier!.pos }, startTick: tickCountRef.current }];
-            setTimeout(() => { canvasTacklesRef.current = canvasTacklesRef.current.slice(1); }, 600);
+            phaseTimersRef.current.push(setTimeout(() => { canvasTacklesRef.current = canvasTacklesRef.current.slice(1); }, 600));
             audioRef.current?.sndTackle();
             break;
           }
@@ -943,10 +977,8 @@ export default function FootballArena() {
             o.hasBall = true;
             ball.pos = { ...o.pos };
             ball.free = false;
-            setTackleFlashes(prev => [...prev, { id: Date.now(), pos: { ...defCarrier!.pos } }]);
-            setTimeout(() => setTackleFlashes(prev => prev.slice(1)), 600);
             canvasTacklesRef.current = [...canvasTacklesRef.current, { pos: { ...defCarrier!.pos }, startTick: tickCountRef.current }];
-            setTimeout(() => { canvasTacklesRef.current = canvasTacklesRef.current.slice(1); }, 600);
+            phaseTimersRef.current.push(setTimeout(() => { canvasTacklesRef.current = canvasTacklesRef.current.slice(1); }, 600));
             break;
           }
         }
@@ -1060,7 +1092,6 @@ export default function FootballArena() {
 
       // --- HALF / PHASE MANAGEMENT ---
       halfTickRef.current++;
-      setHalfTick(halfTickRef.current);
       const phase = phaseRef.current;
       const maxTicks = phase === "extra" ? EXTRA_TICKS : HALF_TICKS;
 
@@ -1139,7 +1170,7 @@ export default function FootballArena() {
 
             audioRef.current?.sndWhistle();
             loopRunning.current = true;
-            rafIdRef.current = requestAnimationFrame(loop);
+            rafIdRef.current = window.setTimeout(loop, tickMs) as unknown as number;
           }, HALFTIME_MS));
           return;
         }
@@ -1173,7 +1204,7 @@ export default function FootballArena() {
 
                 audioRef.current?.sndWhistle();
                 loopRunning.current = true;
-                rafIdRef.current = requestAnimationFrame(loop);
+                rafIdRef.current = window.setTimeout(loop, tickMs) as unknown as number;
               }, 1500));
             }, HALFTIME_MS));
             return;
@@ -1210,24 +1241,20 @@ export default function FootballArena() {
     };
 
     loopRunning.current = true;
-    let lastTime = 0;
     const tickMs = gameSpeed === "fast" ? TICK_MS_FAST : TICK_MS_STANDARD;
-    function loop(time: number) {
+    function loop() {
       if (!loopRunning.current) return;
-      if (time - lastTime >= tickMs) {
-        lastTime = time;
-        tick();
-      }
-      rafIdRef.current = requestAnimationFrame(loop);
+      tick();
+      rafIdRef.current = window.setTimeout(loop, tickMs) as unknown as number;
     }
-    rafIdRef.current = requestAnimationFrame(loop);
+    rafIdRef.current = window.setTimeout(loop, tickMs) as unknown as number;
   }, [bet, offenseCount, defenseCount, resetField, gameSpeed, offenseTeam, defenseTeam]);
 
   useEffect(() => {
     return () => {
       if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
       loopRunning.current = false;
-      cancelAnimationFrame(rafIdRef.current);
+      clearTimeout(rafIdRef.current);
       for (const t of phaseTimersRef.current) clearTimeout(t);
       phaseTimersRef.current = [];
     };
@@ -1250,7 +1277,7 @@ export default function FootballArena() {
                   <span className="hdr-phase">{matchPhase === "1st" ? "1ST HALF" : matchPhase === "2nd" ? "2ND HALF" : matchPhase === "extra" ? "EXTRA TIME" : matchPhase === "fulltime" ? "FULL TIME" : matchPhase === "extra-intro" ? "EXTRA TIME" : "HALF TIME"}</span>
                   {matchPhase !== "halftime" && matchPhase !== "fulltime" && matchPhase !== "extra-intro" && (
                     <div className="hdr-timer">
-                      <div className="hdr-timer-fill" style={{ width: `${Math.min(100, (halfTick / (matchPhase === "extra" ? EXTRA_TICKS : HALF_TICKS)) * 100)}%` }} />
+                      <div ref={timerBarRef} className="hdr-timer-fill" />
                     </div>
                   )}
                 </div>

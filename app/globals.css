@@ -2724,3 +2724,18 @@ body {
 @media (min-width: 521px) and (max-height: 920px) {
   .app { height: 100vh; height: 100dvh; border-radius: 0; }
 }
+
+/* Android performance: disable expensive backdrop-filter */
+html.android .bet-modal,
+html.android .halftime-overlay,
+html.android .match-overlay,
+html.android .bet-badge,
+html.android .field-change-team,
+html.android .corner-btn,
+html.android .corner-count {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html.android .bet-modal { background: rgba(15, 33, 46, 0.92); }
+html.android .halftime-overlay { background: rgba(15, 33, 46, 0.88); }
+html.android .match-overlay { background: rgba(15, 33, 46, 0.88); }

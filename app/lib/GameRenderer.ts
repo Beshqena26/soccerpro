@@ -76,6 +76,7 @@ export class GameRenderer {
   private ctx: CanvasRenderingContext2D;
   private w: number;
   private h: number;
+  private isAndroid: boolean;
 
   private images: ImageCache;
 
@@ -94,6 +95,7 @@ export class GameRenderer {
     this.w = this.canvas.width;
     this.h = this.canvas.height;
     this.images = new ImageCache();
+    this.isAndroid = typeof navigator !== "undefined" && /android/i.test(navigator.userAgent);
   }
 
   /* ---- public helpers ---- */
@@ -427,11 +429,11 @@ export class GameRenderer {
     ctx.save();
     ctx.globalAlpha = alpha;
 
-    // Glow for ball carrier
+    // Glow for ball carrier (reduced on Android for performance)
     if (p.hasBall || p.hasDefBall) {
       ctx.shadowColor = "rgba(255,255,255,0.9)";
-      ctx.shadowBlur = 18;
-    } else if (p.isGK) {
+      ctx.shadowBlur = this.isAndroid ? 4 : 18;
+    } else if (p.isGK && !this.isAndroid) {
       ctx.shadowColor = "rgba(255,255,200,0.4)";
       ctx.shadowBlur = 8;
     }
