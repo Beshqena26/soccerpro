@@ -78,7 +78,7 @@ export class AudioEngine {
       this.bgMusic = new Audio('/bg-music.mp3');
       this.bgMusic.preload = 'auto';
       this.bgMusic.loop = true;
-      this.bgMusic.volume = 0.15;
+      this.bgMusic.volume = 0.05;
       if (this.enabled) {
         this.bgMusic.play().catch(() => {});
       }
