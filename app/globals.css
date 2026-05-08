@@ -1760,12 +1760,12 @@ body {
   left: 50%;
   transform: translateX(-50%);
   z-index: 22;
-  padding: 6px 16px;
+  padding: 10px 24px;
   background: rgba(243, 202, 35, 0.9);
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   color: #3F260B;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
