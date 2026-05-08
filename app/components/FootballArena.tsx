@@ -1489,17 +1489,17 @@ export default function FootballArena() {
             {roundResult && !playing && (
               <div className="match-overlay" onClick={dismissOverlay}>
                 <div className="mo-final-score">{offScore} - {defScore}</div>
-                <div className="match-overlay-mult" style={{
-                  color: roundResult === "win" ? "#10e676" : "#ED4163",
-                }}>
-                  {roundResult === "win" ? `${resultMult.toFixed(2)}x` : "0.00x"}
-                </div>
                 <div className="match-overlay-score" style={{
                   color: roundResult === "win" ? "#10e676" : "#ED4163",
                 }}>
                   {roundResult === "win"
                     ? `+$${fmt(resultBet * resultMult)}`
                     : `-$${fmt(resultBet)}`}
+                </div>
+                <div className="match-overlay-mult" style={{
+                  color: roundResult === "win" ? "#10e676" : "#ED4163",
+                }}>
+                  {roundResult === "win" ? `${resultMult.toFixed(2)}x` : "0.00x"}
                 </div>
                 <div className="match-overlay-tap">Tap to continue</div>
               </div>

@@ -1059,21 +1059,22 @@ body {
 }
 
 .match-overlay-mult {
-  font-size: 48px;
-  font-weight: 900;
-  letter-spacing: -0.02em;
-  text-shadow: 0 4px 24px rgba(0,0,0,0.5);
-  animation: overlayScalePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.4);
+  animation: overlayFadeUp 0.4s ease-out 0.15s both;
 }
 @keyframes overlayScalePop {
   0% { opacity: 0; transform: scale(0.4); }
   100% { opacity: 1; transform: scale(1); }
 }
 .match-overlay-score {
-  font-size: 18px;
-  font-weight: 700;
-  text-shadow: 0 2px 10px rgba(0,0,0,0.4);
-  animation: overlayFadeUp 0.4s ease-out 0.15s both;
+  font-size: 42px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  text-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  animation: overlayScalePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 .match-overlay-tap {
   font-size: 10px;
@@ -2611,8 +2612,8 @@ body {
   .ball-inner { width: 14px; height: 14px; }
 
   .match-overlay { padding: 16px 28px; }
-  .match-overlay-mult { font-size: 36px; }
-  .match-overlay-score { font-size: 15px; }
+  .match-overlay-score { font-size: 32px; }
+  .match-overlay-mult { font-size: 14px; }
 
   .field-side-stat { padding: 4px 6px; backdrop-filter: none; background: rgba(15, 33, 46, 0.88); }
   .field-side-stat.left-side { left: 4px; }
@@ -2712,7 +2713,8 @@ body {
   .counter-btn { width: 28px; }
   .bet-input-row { height: 32px; }
   .play-btn { height: 38px; font-size: 12px; }
-  .match-overlay-mult { font-size: 30px; }
+  .match-overlay-score { font-size: 28px; }
+  .match-overlay-mult { font-size: 12px; }
   .penalty-area { width: 140px; margin-left: -70px; height: 55px; }
   .goal-area { width: 70px; margin-left: -35px; height: 24px; }
   .goal-frame { width: 80px; margin-left: -40px; }
