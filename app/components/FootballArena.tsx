@@ -292,6 +292,30 @@ export default function FootballArena() {
     }
   }, []);
 
+  // Wake Lock — prevent screen sleep during gameplay
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  useEffect(() => {
+    if (playing) {
+      navigator.wakeLock?.request("screen").then(wl => {
+        wakeLockRef.current = wl;
+      }).catch(() => {});
+      // Re-acquire on tab focus (wake lock auto-releases on background)
+      const reacquire = () => {
+        if (playing && document.visibilityState === "visible") {
+          navigator.wakeLock?.request("screen").then(wl => {
+            wakeLockRef.current = wl;
+          }).catch(() => {});
+        }
+      };
+      document.addEventListener("visibilitychange", reacquire);
+      return () => {
+        document.removeEventListener("visibilitychange", reacquire);
+        wakeLockRef.current?.release().catch(() => {});
+        wakeLockRef.current = null;
+      };
+    }
+  }, [playing]);
+
   useEffect(() => {
     audioRef.current = new AudioEngine();
     const np = createPlayers(5, 5);
@@ -1116,8 +1140,8 @@ export default function FootballArena() {
         setGoalFlash(true);
         setGoalText("GOAL!");
         setCameraShake(true);
-        setTimeout(() => setCameraShake(false), 500);
-        setTimeout(() => { setGoalFlash(false); setGoalText(null); }, 1000);
+        phaseTimersRef.current.push(setTimeout(() => setCameraShake(false), 500));
+        phaseTimersRef.current.push(setTimeout(() => { setGoalFlash(false); setGoalText(null); }, 1000));
         audioRef.current?.sndGoal();
 
         // In extra time, first goal ends match (golden goal)
@@ -1529,8 +1553,8 @@ export default function FootballArena() {
                             placeholder="Bet amount"
                           />
                           <div className="bm-chips">
-                            <button onClick={() => setBet(prev => Math.max(MIN_BET, parseFloat(prev) / 2).toFixed(2))}>½</button>
-                            <button onClick={() => setBet(prev => Math.min(balanceRef.current, MAX_BET, parseFloat(prev) * 2).toFixed(2))}>2x</button>
+                            <button onClick={() => setBet(prev => { const v = parseFloat(prev); return (isFinite(v) ? Math.max(MIN_BET, v / 2) : MIN_BET).toFixed(2); })}>½</button>
+                            <button onClick={() => setBet(prev => { const v = parseFloat(prev); return (isFinite(v) ? Math.min(balanceRef.current, MAX_BET, v * 2) : MIN_BET).toFixed(2); })}>2x</button>
                             <button onClick={() => setBet(Math.min(balanceRef.current, MAX_BET).toFixed(2))}>Max</button>
                           </div>
                         </div>
