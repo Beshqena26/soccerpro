@@ -1302,43 +1302,35 @@ body {
 /* ===== BET MODAL — on stadium ===== */
 .bet-modal-overlay {
   position: absolute;
-  inset: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 20;
   display: flex;
-  align-items: center;
   justify-content: center;
-  background: transparent;
-  border-radius: 8px;
-  animation: betModalFadeIn 0.35s ease both;
-}
-@keyframes betModalFadeIn {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
+  pointer-events: none;
 }
 .bet-modal {
   background: rgba(15, 33, 46, 0.5);
   backdrop-filter: blur(20px) saturate(1.2);
   -webkit-backdrop-filter: blur(20px) saturate(1.2);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  padding: 18px 16px 16px;
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  padding: 16px 16px 12px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  width: 300px;
-  max-width: 88%;
+  width: 100%;
+  pointer-events: auto;
   box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.55),
-    0 0 0 1px rgba(47, 69, 83, 0.15),
-    0 0 40px rgba(243, 202, 35, 0.03);
-  animation: betModalPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    0 -8px 30px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  animation: betModalSlideUp 0.4s cubic-bezier(0.25, 0.1, 0.25, 1) both;
 }
-@keyframes betModalPop {
-  0% { opacity: 0; transform: scale(0.8) translateY(12px); }
-  100% { opacity: 1; transform: scale(1) translateY(0); }
+@keyframes betModalSlideUp {
+  0% { opacity: 0; transform: translateY(100%); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 /* Team picker inside modal */
@@ -2650,7 +2642,7 @@ body {
   .field-stat { backdrop-filter: none; background: rgba(15, 33, 46, 0.88); }
   .field-bet-row { backdrop-filter: none; background: rgba(15, 33, 46, 0.88); }
 
-  .bet-modal { padding: 14px 12px; width: 270px; }
+  .bet-modal { padding: 12px 12px 10px; }
   .bm-stats { padding: 6px 0; }
   .bm-stat-val { font-size: 15px; }
   .bm-stat-label { font-size: 7px; }
@@ -2744,6 +2736,6 @@ html.android .corner-count {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-html.android .bet-modal { background: rgba(15, 33, 46, 0.65); }
+html.android .bet-modal { background: rgba(15, 33, 46, 0.7); }
 html.android .halftime-overlay { background: rgba(15, 33, 46, 0.6); }
 html.android .match-overlay { background: rgba(15, 33, 46, 0.6); }
