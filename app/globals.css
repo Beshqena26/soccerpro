@@ -1126,12 +1126,12 @@ body {
 .corner-btn:disabled { opacity: 0.2; cursor: not-allowed; }
 
 /* Defense — top corners */
-/* Defense — bottom of defense half, near center */
-.corner-btn.top-left { top: 40%; left: 25%; }
-.corner-btn.top-right { top: 40%; right: 25%; }
-/* Offense — bottom of offense half, near bottom */
-.corner-btn.bottom-left { bottom: 8%; left: 25%; }
-.corner-btn.bottom-right { bottom: 8%; right: 25%; }
+/* Defense — near top, mirroring offense */
+.corner-btn.top-left { top: 8%; left: 10%; }
+.corner-btn.top-right { top: 8%; right: 10%; }
+/* Offense — near bottom, spread wider */
+.corner-btn.bottom-left { bottom: 8%; left: 10%; }
+.corner-btn.bottom-right { bottom: 8%; right: 10%; }
 
 /* Count display — centered on each side */
 .corner-count {
@@ -2609,10 +2609,10 @@ body {
   .fss-val { font-size: 11px; }
 
   .corner-btn { width: 36px; height: 36px; font-size: 20px; border-radius: 10px; backdrop-filter: none; background: rgba(15, 33, 46, 0.85); }
-  .corner-btn.top-left { top: 38%; left: 20%; }
-  .corner-btn.top-right { top: 38%; right: 20%; }
-  .corner-btn.bottom-left { bottom: 6%; left: 20%; }
-  .corner-btn.bottom-right { bottom: 6%; right: 20%; }
+  .corner-btn.top-left { top: 6%; left: 6%; }
+  .corner-btn.top-right { top: 6%; right: 6%; }
+  .corner-btn.bottom-left { bottom: 6%; left: 6%; }
+  .corner-btn.bottom-right { bottom: 6%; right: 6%; }
   .corner-count { font-size: 16px; padding: 4px 12px; backdrop-filter: none; background: rgba(15, 33, 46, 0.85); }
   .corner-count.top-center { top: 40%; }
   .corner-count.bottom-center { bottom: 40%; }
