@@ -1092,42 +1092,36 @@ body {
 .corner-btn {
   position: absolute;
   z-index: 22;
-  width: 30px;
-  height: 30px;
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 8px;
-  background: rgba(15, 33, 46, 0.75);
+  width: 40px;
+  height: 40px;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 12px;
+  background: rgba(15, 33, 46, 0.8);
   backdrop-filter: blur(6px);
-  color: var(--text-75);
-  font-size: 18px;
+  color: #fff;
+  font-size: 22px;
   font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: inherit;
-  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
-              background 0.25s ease,
-              border-color 0.25s ease,
-              color 0.25s ease,
-              box-shadow 0.25s ease;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
   pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
 }
 .corner-btn:hover:not(:disabled) {
-  background: rgba(243, 202, 35, 0.15);
-  border-color: var(--accent-border);
+  background: rgba(243, 202, 35, 0.2);
+  border-color: var(--accent);
   color: var(--accent);
-  transform: scale(1.1);
-  box-shadow: 0 0 12px rgba(243, 202, 35, 0.15);
 }
 .corner-btn:active:not(:disabled) {
-  transform: scale(0.82);
-  background: rgba(243, 202, 35, 0.3);
-  box-shadow: 0 0 6px rgba(243, 202, 35, 0.25);
-  transition: transform 0.08s ease-out,
-              background 0.08s ease-out;
+  transform: scale(0.88);
+  background: rgba(243, 202, 35, 0.35);
+  border-color: var(--accent);
+  color: var(--accent);
 }
-.corner-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+.corner-btn:disabled { opacity: 0.2; cursor: not-allowed; }
 
 /* Defense — top corners */
 .corner-btn.top-left { top: 8px; left: 8px; }
@@ -1140,12 +1134,12 @@ body {
 .corner-count {
   position: absolute;
   z-index: 22;
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 800;
-  background: rgba(15, 33, 46, 0.75);
+  background: rgba(15, 33, 46, 0.8);
   backdrop-filter: blur(6px);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 8px;
+  border: 2px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
   padding: 3px 12px;
   pointer-events: none;
   transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -2629,12 +2623,12 @@ body {
   .fss-label { font-size: 6px; }
   .fss-val { font-size: 11px; }
 
-  .corner-btn { width: 26px; height: 26px; font-size: 15px; border-radius: 6px; backdrop-filter: none; background: rgba(15, 33, 46, 0.88); }
+  .corner-btn { width: 36px; height: 36px; font-size: 20px; border-radius: 10px; backdrop-filter: none; background: rgba(15, 33, 46, 0.85); }
   .corner-btn.top-left { top: 5px; left: 5px; }
   .corner-btn.top-right { top: 5px; right: 5px; }
   .corner-btn.bottom-left { bottom: 5px; left: 5px; }
   .corner-btn.bottom-right { bottom: 5px; right: 5px; }
-  .corner-count { font-size: 12px; padding: 2px 10px; backdrop-filter: none; background: rgba(15, 33, 46, 0.88); }
+  .corner-count { font-size: 16px; padding: 4px 12px; backdrop-filter: none; background: rgba(15, 33, 46, 0.85); }
   .corner-count.top-center { top: -28px; }
   .corner-count.bottom-center { bottom: -28px; }
 
