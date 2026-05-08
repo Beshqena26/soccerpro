@@ -1154,13 +1154,13 @@ body {
   100% { transform: translateX(-50%) scale(1); }
 }
 .corner-count.top-center {
-  top: -32px;
+  top: 12%;
   left: 50%;
   transform: translateX(-50%);
   color: var(--accent);
 }
 .corner-count.bottom-center {
-  bottom: -32px;
+  bottom: 12%;
   left: 50%;
   transform: translateX(-50%);
   color: var(--green);
@@ -2614,8 +2614,8 @@ body {
   .corner-btn.bottom-left { bottom: 12%; left: 6%; }
   .corner-btn.bottom-right { bottom: 12%; right: 6%; }
   .corner-count { font-size: 16px; padding: 4px 12px; backdrop-filter: none; background: rgba(15, 33, 46, 0.85); }
-  .corner-count.top-center { top: -28px; }
-  .corner-count.bottom-center { bottom: -28px; }
+  .corner-count.top-center { top: 10%; }
+  .corner-count.bottom-center { bottom: 10%; }
 
   .field-overlay-controls { bottom: 4px; left: 4px; right: 4px; gap: 4px; }
   .field-stat { padding: 3px 4px; }
