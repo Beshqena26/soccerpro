@@ -1292,10 +1292,7 @@ export default function FootballArena() {
         }
       }
 
-      playersRef.current = pls;
-      ballRef.current = ball;
-      // Canvas reads directly from refs — no React state updates needed per tick
-      tickCountRef.current++;
+      // pls and ball are already the refs — mutated in place
     };
 
     loopRunning.current = true;
