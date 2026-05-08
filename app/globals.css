@@ -1311,18 +1311,11 @@ body {
   gap: 10px;
   overflow-y: auto;
   max-height: 320px;
-  transition: opacity 0.35s ease, transform 0.35s ease;
-  transform-origin: bottom;
+  transition: opacity 0.3s ease;
 }
 .bet-panel.panel-hidden {
   opacity: 0;
-  transform: translateY(20px);
   pointer-events: none;
-  max-height: 0;
-  padding: 0 16px;
-  overflow: hidden;
-  border-top-color: transparent;
-  transition: opacity 0.25s ease, transform 0.25s ease, max-height 0s 0.25s, padding 0s 0.25s;
 }
 
 /* Team picker inside modal */
