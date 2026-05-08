@@ -1468,119 +1468,6 @@ export default function FootballArena() {
               </div>
             )}
 
-            {/* Bet modal on stadium — visible when NOT playing */}
-            {!playing && !roundResult && (
-              <div className="bet-modal-overlay">
-                <div className="bet-modal">
-                  {/* --- TEAM SELECTION MODE --- */}
-                  {(!offenseTeam || showTeamPicker) ? (
-                    <>
-                      <div className="bm-pick-title">Choose Your Team</div>
-                      <div className="bm-pick-search">
-                        <input
-                          type="text"
-                          placeholder="Search..."
-                          value={teamSearch}
-                          onChange={e => setTeamSearch(e.target.value)}
-                        />
-                      </div>
-                      <div className="bm-pick-grid">
-                        {(() => {
-                          const filtered = worldCup2026Teams
-                            .filter(t => t.name.toLowerCase().includes(teamSearch.toLowerCase()) || t.code.toLowerCase().includes(teamSearch.toLowerCase()))
-                            .sort((a, b) => a.name.localeCompare(b.name));
-                          const grouped: Record<string, typeof filtered> = {};
-                          for (const t of filtered) {
-                            const letter = t.name[0].toUpperCase();
-                            (grouped[letter] ??= []).push(t);
-                          }
-                          return Object.entries(grouped).map(([letter, teams]) => (
-                            <div key={letter} className="bm-pick-group">
-                              <div className="bm-pick-letter">{letter}</div>
-                              {teams.map(team => (
-                                <button
-                                  key={team.code}
-                                  className="bm-pick-team"
-                                  onClick={() => {
-                                    const others = worldCup2026Teams.filter(t => t.code !== team.code);
-                                    const opponent = others[Math.floor(Math.random() * others.length)];
-                                    audioRef.current?.unlock();
-                                    setOffenseTeam(team);
-                                    setDefenseTeam(opponent);
-                                    setShowTeamPicker(false);
-                                    setTeamSearch("");
-                                    resetField(offenseCount, defenseCount);
-                                    setTimeout(() => audioRef.current?.startBgMusic(), 200);
-                                  }}
-                                >
-                                  <span className="bpt-flag">{team.flag}</span>
-                                  <span className="bpt-name">{team.name}</span>
-                                  <span className="bpt-code">{team.code}</span>
-                                </button>
-                              ))}
-                            </div>
-                          ));
-                        })()}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      {/* --- BET CONTROLS MODE --- */}
-                      {/* Stats strip — multiplier + win chance */}
-                      <div className="bm-stats">
-                        <div className="bm-stat">
-                          <span className="bm-stat-val accent">{multiplier.toFixed(2)}x</span>
-                          <span className="bm-stat-label">Multiplier</span>
-                        </div>
-                        <div className="bm-stat-divider" />
-                        <div className="bm-stat">
-                          <span className="bm-stat-val green">{winChance.toFixed(1)}%</span>
-                          <span className="bm-stat-label">Win Chance</span>
-                        </div>
-                      </div>
-
-                      {/* Bet input + payout */}
-                      <div className="bm-bet-section">
-                        <div className="bm-input-wrap">
-                          <span className="bm-currency">$</span>
-                          <input
-                            type="number"
-                            value={bet}
-                            onChange={e => setBet(e.target.value)}
-                            min={MIN_BET}
-                            max={MAX_BET}
-                            step="0.01"
-                            placeholder="Bet amount"
-                          />
-                          <div className="bm-chips">
-                            <button onClick={() => setBet(prev => { const v = parseFloat(prev); return (isFinite(v) ? Math.max(MIN_BET, v / 2) : MIN_BET).toFixed(2); })}>½</button>
-                            <button onClick={() => setBet(prev => { const v = parseFloat(prev); return (isFinite(v) ? Math.min(balanceRef.current, MAX_BET, v * 2) : MIN_BET).toFixed(2); })}>2x</button>
-                            <button onClick={() => setBet(Math.min(balanceRef.current, MAX_BET).toFixed(2))}>Max</button>
-                          </div>
-                        </div>
-                        <div className="bm-payout-strip">
-                          <span className="bm-payout-label">Potential Win</span>
-                          <span className="bm-payout-val">${fmt(parseFloat(bet || "0") * multiplier)}</span>
-                        </div>
-                      </div>
-
-                      {/* Two game mode buttons */}
-                      {balance < MIN_BET && (
-                        <div className="bm-broke">Insufficient balance</div>
-                      )}
-                      <div className="bm-dual-btns">
-                        <button className="bm-kick-btn standard" onClick={() => { setGameSpeed("standard"); playRound("standard"); }} disabled={balance < MIN_BET}>
-                          STANDARD
-                        </button>
-                        <button className="bm-kick-btn fast" onClick={() => { setGameSpeed("fast"); playRound("fast"); }} disabled={balance < MIN_BET}>
-                          FAST
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
 
             {/* Corner badge — bet/payout during gameplay */}
             {playing && (
@@ -1616,6 +1503,113 @@ export default function FootballArena() {
           </div>
         </div>
 
+
+        {/* Bet panel — below field */}
+        {!playing && !roundResult && (
+          <div className="bet-panel">
+            {(!offenseTeam || showTeamPicker) ? (
+              <>
+                <div className="bm-pick-title">Choose Your Team</div>
+                <div className="bm-pick-search">
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={teamSearch}
+                    onChange={e => setTeamSearch(e.target.value)}
+                  />
+                </div>
+                <div className="bm-pick-grid">
+                  {(() => {
+                    const filtered = worldCup2026Teams
+                      .filter(t => t.name.toLowerCase().includes(teamSearch.toLowerCase()) || t.code.toLowerCase().includes(teamSearch.toLowerCase()))
+                      .sort((a, b) => a.name.localeCompare(b.name));
+                    const grouped: Record<string, typeof filtered> = {};
+                    for (const t of filtered) {
+                      const letter = t.name[0].toUpperCase();
+                      (grouped[letter] ??= []).push(t);
+                    }
+                    return Object.entries(grouped).map(([letter, teams]) => (
+                      <div key={letter} className="bm-pick-group">
+                        <div className="bm-pick-letter">{letter}</div>
+                        {teams.map(team => (
+                          <button
+                            key={team.code}
+                            className="bm-pick-team"
+                            onClick={() => {
+                              const others = worldCup2026Teams.filter(t => t.code !== team.code);
+                              const opponent = others[Math.floor(Math.random() * others.length)];
+                              audioRef.current?.unlock();
+                              setOffenseTeam(team);
+                              setDefenseTeam(opponent);
+                              setShowTeamPicker(false);
+                              setTeamSearch("");
+                              resetField(offenseCount, defenseCount);
+                              setTimeout(() => audioRef.current?.startBgMusic(), 200);
+                            }}
+                          >
+                            <span className="bpt-flag">{team.flag}</span>
+                            <span className="bpt-name">{team.name}</span>
+                            <span className="bpt-code">{team.code}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="bm-stats">
+                  <div className="bm-stat">
+                    <span className="bm-stat-val accent">{multiplier.toFixed(2)}x</span>
+                    <span className="bm-stat-label">Multiplier</span>
+                  </div>
+                  <div className="bm-stat-divider" />
+                  <div className="bm-stat">
+                    <span className="bm-stat-val green">{winChance.toFixed(1)}%</span>
+                    <span className="bm-stat-label">Win Chance</span>
+                  </div>
+                </div>
+
+                <div className="bm-bet-section">
+                  <div className="bm-input-wrap">
+                    <span className="bm-currency">$</span>
+                    <input
+                      type="number"
+                      value={bet}
+                      onChange={e => setBet(e.target.value)}
+                      min={MIN_BET}
+                      max={MAX_BET}
+                      step="0.01"
+                      placeholder="Bet amount"
+                    />
+                    <div className="bm-chips">
+                      <button onClick={() => setBet(prev => { const v = parseFloat(prev); return (isFinite(v) ? Math.max(MIN_BET, v / 2) : MIN_BET).toFixed(2); })}>½</button>
+                      <button onClick={() => setBet(prev => { const v = parseFloat(prev); return (isFinite(v) ? Math.min(balanceRef.current, MAX_BET, v * 2) : MIN_BET).toFixed(2); })}>2x</button>
+                      <button onClick={() => setBet(Math.min(balanceRef.current, MAX_BET).toFixed(2))}>Max</button>
+                    </div>
+                  </div>
+                  <div className="bm-payout-strip">
+                    <span className="bm-payout-label">Potential Win</span>
+                    <span className="bm-payout-val">${fmt(parseFloat(bet || "0") * multiplier)}</span>
+                  </div>
+                </div>
+
+                {balance < MIN_BET && (
+                  <div className="bm-broke">Insufficient balance</div>
+                )}
+                <div className="bm-dual-btns">
+                  <button className="bm-kick-btn standard" onClick={() => { setGameSpeed("standard"); playRound("standard"); }} disabled={balance < MIN_BET}>
+                    STANDARD
+                  </button>
+                  <button className="bm-kick-btn fast" onClick={() => { setGameSpeed("fast"); playRound("fast"); }} disabled={balance < MIN_BET}>
+                    FAST
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Bottom Bar — same as Limbo */}
         <div className="footer-bar">

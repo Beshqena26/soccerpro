@@ -1300,36 +1300,21 @@ body {
 .field-bet-chips button:disabled { opacity: 0.3; cursor: not-allowed; }
 
 /* ===== BET MODAL — on stadium ===== */
-.bet-modal-overlay {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 20;
-  display: flex;
-  justify-content: center;
-  pointer-events: none;
-}
-.bet-modal {
-  background: rgba(15, 33, 46, 0.5);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-bottom: none;
-  border-radius: 16px 16px 0 0;
-  padding: 16px 16px 12px;
+/* Bet panel — below the field */
+.bet-panel {
+  flex-shrink: 0;
+  background: var(--panel);
+  border-top: 1px solid var(--hairline);
+  padding: 12px 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  width: 100%;
-  pointer-events: auto;
-  box-shadow:
-    0 -8px 30px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  animation: betModalSlideUp 0.4s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+  gap: 10px;
+  animation: panelSlideUp 0.3s ease both;
+  overflow-y: auto;
+  max-height: 320px;
 }
-@keyframes betModalSlideUp {
-  0% { opacity: 0; transform: translateY(100%); }
+@keyframes panelSlideUp {
+  0% { opacity: 0; transform: translateY(20px); }
   100% { opacity: 1; transform: translateY(0); }
 }
 
@@ -2642,7 +2627,7 @@ body {
   .field-stat { backdrop-filter: none; background: rgba(15, 33, 46, 0.88); }
   .field-bet-row { backdrop-filter: none; background: rgba(15, 33, 46, 0.88); }
 
-  .bet-modal { padding: 12px 12px 10px; }
+  .bet-panel { padding: 10px 12px; gap: 8px; max-height: 280px; }
   .bm-stats { padding: 6px 0; }
   .bm-stat-val { font-size: 15px; }
   .bm-stat-label { font-size: 7px; }
@@ -2736,6 +2721,5 @@ html.android .corner-count {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-html.android .bet-modal { background: rgba(15, 33, 46, 0.7); }
 html.android .halftime-overlay { background: rgba(15, 33, 46, 0.6); }
 html.android .match-overlay { background: rgba(15, 33, 46, 0.6); }
