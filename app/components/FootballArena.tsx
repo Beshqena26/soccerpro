@@ -469,8 +469,9 @@ export default function FootballArena() {
     resetField(offenseCount, defenseCount);
   }, [offenseCount, defenseCount, resetField]);
 
-  const playRound = useCallback(() => {
+  const playRound = useCallback((speed?: "standard" | "fast") => {
     if (loopRunning.current) return; // prevent double-click
+    const activeSpeed = speed ?? gameSpeed;
     const betAmt = parseFloat(bet);
     if (!isFinite(betAmt) || betAmt < MIN_BET || betAmt > MAX_BET) {
       setAlert(`Bet must be $${MIN_BET}-$${MAX_BET}`);
@@ -1287,7 +1288,7 @@ export default function FootballArena() {
     };
 
     loopRunning.current = true;
-    const tickMs = gameSpeed === "fast" ? TICK_MS_FAST : TICK_MS_STANDARD;
+    const tickMs = activeSpeed === "fast" ? TICK_MS_FAST : TICK_MS_STANDARD;
     function loop() {
       if (!loopRunning.current) return;
       tick();
@@ -1533,10 +1534,10 @@ export default function FootballArena() {
                         <div className="bm-broke">Insufficient balance</div>
                       )}
                       <div className="bm-dual-btns">
-                        <button className="bm-kick-btn standard" onClick={() => { setGameSpeed("standard"); playRound(); }} disabled={balance < MIN_BET}>
+                        <button className="bm-kick-btn standard" onClick={() => { setGameSpeed("standard"); playRound("standard"); }} disabled={balance < MIN_BET}>
                           STANDARD
                         </button>
-                        <button className="bm-kick-btn fast" onClick={() => { setGameSpeed("fast"); playRound(); }} disabled={balance < MIN_BET}>
+                        <button className="bm-kick-btn fast" onClick={() => { setGameSpeed("fast"); playRound("fast"); }} disabled={balance < MIN_BET}>
                           FAST
                         </button>
                       </div>
