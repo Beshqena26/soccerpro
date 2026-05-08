@@ -481,18 +481,11 @@ export default function FootballArena() {
 
       setMatchPhase(null);
 
-      // Confetti on win
       if (won) {
         setCelebrating(true);
         setTimeout(() => setCelebrating(false), 1500);
-        const bits = Array.from({ length: 20 }, (_, i) => ({
-          id: Date.now() + i,
-          x: 20 + Math.random() * 60,
-          color: [offenseTeam?.primaryColor || '#0ECC68', offenseTeam?.secondaryColor || '#fff', '#FFD700'][i % 3],
-          delay: Math.random() * 0.3,
-        }));
-        setConfetti(bits);
-        setTimeout(() => setConfetti([]), 2000);
+        setShowPayout(`+$${fmt(betAmt * mult)}`);
+        setTimeout(() => setShowPayout(null), 2500);
       } else {
         audioRef.current?.sndLose();
       }
@@ -509,8 +502,6 @@ export default function FootballArena() {
           setBalance(winBal);
           balanceRef.current = winBal;
           setWins(w => w + 1);
-          setShowPayout(`+$${fmt(payout)}`);
-          setTimeout(() => setShowPayout(null), 1500);
         } else {
           setLosses(l => l + 1);
         }
@@ -1345,23 +1336,16 @@ export default function FootballArena() {
 
             {/* DOM overlays on top of canvas */}
 
-            {/* Confetti on win */}
-            {confetti.map(c => (
-              <div
-                key={c.id}
-                className="confetti-bit"
-                style={{
-                  left: `${c.x}%`,
-                  top: '30%',
-                  backgroundColor: c.color,
-                  animationDelay: `${c.delay}s`,
-                }}
-              />
-            ))}
-
             {goalFlash && <div className="goal-flash" />}
             {goalText && <div className="goal-text">{goalText}</div>}
-            {showPayout && <div className="payout-float">{showPayout}</div>}
+
+            {/* Big win amount with sparkle */}
+            {showPayout && (
+              <div className="win-splash">
+                <div className="win-sparkle" />
+                <div className="win-amount">{showPayout}</div>
+              </div>
+            )}
 
             {/* Halftime overlay */}
             {matchPhase === "halftime" && (
