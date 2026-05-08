@@ -1822,6 +1822,7 @@ body {
   position: absolute;
   inset: 0;
   z-index: 18;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1849,6 +1850,13 @@ body {
   font-weight: 900;
   color: var(--accent);
   text-shadow: 0 2px 16px rgba(243, 202, 35, 0.3);
+}
+.ht-tap {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.3);
+  margin-top: 8px;
+  animation: htFadeIn 0.5s ease 0.5s both;
 }
 .ht-sub {
   font-size: 14px;

@@ -417,6 +417,18 @@ export default function FootballArena() {
   const cameraShakeRef = useRef(cameraShake);
   cameraShakeRef.current = cameraShake;
   const timerBarRef = useRef<HTMLDivElement>(null);
+  const skipPhaseRef = useRef<(() => void) | null>(null);
+
+  const handleSkipPhase = useCallback(() => {
+    if (skipPhaseRef.current) {
+      // Clear pending phase timers
+      for (const t of phaseTimersRef.current) clearTimeout(t);
+      phaseTimersRef.current = [];
+      // Execute skip
+      skipPhaseRef.current();
+      skipPhaseRef.current = null;
+    }
+  }, []);
 
 
   const multiplier = getMultiplier(offenseCount, defenseCount);
@@ -1195,79 +1207,78 @@ export default function FootballArena() {
         const ds = defScoreRef.current;
 
         if (phase === "1st") {
-          // End of 1st half → halftime
           loopRunning.current = false;
           playersRef.current = pls; ballRef.current = ball;
-            setMatchPhase("halftime");
+          setMatchPhase("halftime");
           audioRef.current?.sndWhistle();
 
-          phaseTimersRef.current.push(setTimeout(() => {
-            if (finishedRef.current) return; // round already ended, don't restart
-            // Start 2nd half
+          const start2ndHalf = () => {
+            if (finishedRef.current) return;
+            skipPhaseRef.current = null;
             phaseRef.current = "2nd";
             halfTickRef.current = 0;
             goalCooldownRef.current = 0;
             setMatchPhase("2nd");
-            setHalfTick(0);
 
             const np2 = createPlayers(oc, dc);
             playersRef.current = np2;
-            setPlayers(np2);
             const bs2 = createBall(oc);
             ballRef.current = bs2;
-            setBallPos(bs2.pos);
-            setBallFree(false);
 
             audioRef.current?.sndWhistle();
             loopRunning.current = true;
             rafIdRef.current = window.setTimeout(loop, tickMs) as unknown as number;
-          }, HALFTIME_MS));
+          };
+          skipPhaseRef.current = start2ndHalf;
+          phaseTimersRef.current.push(setTimeout(start2ndHalf, HALFTIME_MS));
           return;
         }
 
         if (phase === "2nd") {
           if (os === ds) {
-            // Tied → show fulltime, then extra time
             loopRunning.current = false;
             playersRef.current = pls; ballRef.current = ball;
-                setMatchPhase("fulltime");
+            setMatchPhase("fulltime");
             audioRef.current?.sndWhistle();
 
+            const startExtraTime = () => {
+              if (finishedRef.current) return;
+              skipPhaseRef.current = null;
+              phaseRef.current = "extra";
+              halfTickRef.current = 0;
+              goalCooldownRef.current = 0;
+              setMatchPhase("extra");
+
+              const np3 = createPlayers(oc, dc);
+              playersRef.current = np3;
+              const bs3 = createBall(oc);
+              ballRef.current = bs3;
+
+              audioRef.current?.sndWhistle();
+              loopRunning.current = true;
+              rafIdRef.current = window.setTimeout(loop, tickMs) as unknown as number;
+            };
+            skipPhaseRef.current = startExtraTime;
             phaseTimersRef.current.push(setTimeout(() => {
               setMatchPhase("extra-intro");
-
-              phaseTimersRef.current.push(setTimeout(() => {
-                phaseRef.current = "extra";
-                halfTickRef.current = 0;
-                goalCooldownRef.current = 0;
-                setMatchPhase("extra");
-                setHalfTick(0);
-
-                const np3 = createPlayers(oc, dc);
-                playersRef.current = np3;
-                setPlayers(np3);
-                const bs3 = createBall(oc);
-                ballRef.current = bs3;
-                setBallPos(bs3.pos);
-                setBallFree(false);
-
-                audioRef.current?.sndWhistle();
-                loopRunning.current = true;
-                rafIdRef.current = window.setTimeout(loop, tickMs) as unknown as number;
-              }, 1500));
+              skipPhaseRef.current = startExtraTime;
+              phaseTimersRef.current.push(setTimeout(startExtraTime, 1500));
             }, HALFTIME_MS));
             return;
           }
           // Not tied → show fulltime then result
           loopRunning.current = false;
           playersRef.current = pls; ballRef.current = ball;
-            setMatchPhase("fulltime");
+          setMatchPhase("fulltime");
           audioRef.current?.sndWhistle();
 
-          phaseTimersRef.current.push(setTimeout(() => {
+          const showResult = () => {
+            skipPhaseRef.current = null;
             roundResultRef.current = os > ds ? "win" : "lose";
             finishRound(os > ds);
-          }, HALFTIME_MS));
+          };
+          skipPhaseRef.current = showResult;
+          phaseTimersRef.current.push(setTimeout(showResult, HALFTIME_MS));
           return;
         }
 
@@ -1411,25 +1422,28 @@ export default function FootballArena() {
 
             {/* Halftime overlay */}
             {matchPhase === "halftime" && (
-              <div className="halftime-overlay">
+              <div className="halftime-overlay" onClick={handleSkipPhase}>
                 <div className="ht-text">HALF TIME</div>
                 <div className="ht-score">{offScore} - {defScore}</div>
+                <div className="ht-tap">Tap to continue</div>
               </div>
             )}
 
             {/* Fulltime overlay */}
             {matchPhase === "fulltime" && (
-              <div className="halftime-overlay">
+              <div className="halftime-overlay" onClick={handleSkipPhase}>
                 <div className="ht-text">FULL TIME</div>
                 <div className="ht-score">{offScore} - {defScore}</div>
+                <div className="ht-tap">Tap to continue</div>
               </div>
             )}
 
             {/* Extra time intro overlay */}
             {matchPhase === "extra-intro" && (
-              <div className="halftime-overlay">
+              <div className="halftime-overlay" onClick={handleSkipPhase}>
                 <div className="ht-text">EXTRA TIME</div>
                 <div className="ht-sub">Next goal wins</div>
+                <div className="ht-tap">Tap to start</div>
               </div>
             )}
 
