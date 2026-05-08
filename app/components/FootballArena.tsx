@@ -481,12 +481,7 @@ export default function FootballArena() {
 
       setMatchPhase(null);
 
-      if (won) {
-        setCelebrating(true);
-        setTimeout(() => setCelebrating(false), 1500);
-        setShowPayout(`+$${fmt(betAmt * mult)}`);
-        setTimeout(() => setShowPayout(null), 2500);
-      } else {
+      if (!won) {
         audioRef.current?.sndLose();
       }
 
@@ -1339,13 +1334,6 @@ export default function FootballArena() {
             {goalFlash && <div className="goal-flash" />}
             {goalText && <div className="goal-text">{goalText}</div>}
 
-            {/* Big win amount with sparkle */}
-            {showPayout && (
-              <div className="win-splash">
-                <div className="win-sparkle" />
-                <div className="win-amount">{showPayout}</div>
-              </div>
-            )}
 
             {/* Halftime overlay */}
             {matchPhase === "halftime" && (
